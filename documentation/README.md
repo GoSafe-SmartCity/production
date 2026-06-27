@@ -22,6 +22,7 @@ Our platform anticipates and reports flooding by synthesizing data from three pr
 By analyzing this data, the system predicts high-risk flood zones and pushes real-time alerts to the user interface, instantly recalculating safe routes.
 
 ## III. Tech Stack
+
 <table>
    <tr>
       <td><p>Frontend</p></td>
@@ -78,7 +79,33 @@ By analyzing this data, the system predicts high-risk flood zones and pushes rea
 - `prisma/`: Schema, migrations, and seed data
 - `public/`: Brand assets, map visuals, and platform icons
 
-## IV. Core Features
+## IV. Architecture
+
+### Frontend Structure
+
+- `app/`: Main frontend shell built with Next.js App Router, including the landing page, global layout, metadata assets, and client providers
+- `components/`: Shared UI building blocks and dashboard sections such as navigation, tables, dialogs, loading states, and reusable form controls
+- `components/ui/`: Base design-system primitives used across the interface for consistent inputs, dialogs, tabs, tooltips, and other controls
+- `hooks/`: Client-side behavior for storage migration and rate-limit handling
+- `public/`: Static assets such as the logo, QR assets, manifest files, and platform icons
+- `app/globals.css`: Global styling entry point for the application-wide visual system
+
+### Backend Structure
+
+- `app/api/`: Server route handlers that expose the application API surface
+- `app/api/auth/`: Authentication flow and NextAuth integration
+- `app/api/incidents/`: Incident intake, approval, clearing, upload, and AI evaluation workflows
+- `app/api/navigation/`: Route logic for navigation and rerouting behavior
+- `app/api/notifications/`: Notification delivery and subscription handling
+- `app/api/rate-limit/`: Rate-limiting endpoints and checks
+- `app/api/users/`: User management and consent endpoints
+- `app/api/vouchers/`: Voucher listing and exchange logic
+- `app/api/weather/`: Weather data ingestion and risk-related endpoints
+- `lib/`: Server-side auth, Prisma client setup, shared utilities, and service logic
+- `prisma/`: Database schema, migrations, and seed data for PostgreSQL-backed persistence
+- `app/generated/prisma/`: Generated Prisma client and model typings used by the backend
+
+## V. Core Features
 
 ### 1. User
 
@@ -100,14 +127,14 @@ By analyzing this data, the system predicts high-risk flood zones and pushes rea
 
 - Use our API to develop their own applications
 
-## V. Prerequisites
+## VI. Prerequisites
 
 - Node.js (v18.0.0 or higher)
 - npm or yarn package manager
 - Git
 - A code editor (VS Code recommended)
 
-## VI. Run Instructions
+## VII. Run Instructions
 
 ### Local Development
 
@@ -156,7 +183,7 @@ yarn build
 yarn start
 ```
 
-## VII. How To Use
+## VIII. How To Use
 
 ### Deployment
 
