@@ -5,13 +5,14 @@ import { useSession, signIn } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast, Toaster } from "sonner";
 import Script from "next/script";
-import { 
-  MapPin, AlertTriangle, Navigation, Award, Sliders, 
-  Calendar, Users, CheckCircle, XCircle, Plus, Loader2, 
+import {
+  MapPin, AlertTriangle, Navigation, Award, Sliders,
+  Calendar, Users, CheckCircle, XCircle, Plus, Loader2,
   Upload, Info, Bell, Shield, ArrowDown, Map, Compass, HardHat, Eye, Brain
 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { ModulesSection } from "@/components/modules-section";
 import { GridPattern } from "@/components/ui/grid-pattern";
 import { DotPattern } from "@/components/ui/dot-pattern";
 import { Button } from "@/components/ui/button";
@@ -150,7 +151,7 @@ export default function HomePage() {
         const data = await res.json();
         setVouchers(data);
       }
-      
+
       if (session) {
         const resEx = await fetch("/api/vouchers/exchange");
         if (resEx.ok) {
@@ -227,7 +228,7 @@ export default function HomePage() {
         const center = map.getCenter();
         fetchWeather(center.lat, center.lng);
       };
-      
+
       updateWeather();
       map.on("dragend", updateWeather);
       return () => {
@@ -407,7 +408,7 @@ export default function HomePage() {
   const handleStartNavigation = () => {
     if (!map) return;
     setNavStep("routing");
-    
+
     const points = [
       { lng: 106.7719, lat: 10.8507 },
       { lng: 106.7735, lat: 10.8512 },
@@ -712,7 +713,7 @@ export default function HomePage() {
     return adminIncidents.filter((inc: any) => {
       const matchCategory = filterCategory === "ALL" || inc.category === filterCategory;
       const matchRisk = filterRiskLevel === "ALL" || inc.riskLevel === filterRiskLevel;
-      
+
       let matchDate = true;
       if (filterStartDate) {
         matchDate = matchDate && new Date(inc.createdAt) >= new Date(filterStartDate);
@@ -733,7 +734,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen relative flex flex-col overflow-x-hidden text-foreground font-normal">
       <Toaster position="top-center" richColors />
-      
+
       {/* Background Grid */}
       <div className="absolute z-[-1] flex h-[350px] sm:h-[450px] lg:h-[600px] w-full flex-col items-center justify-center rounded-lg overflow-hidden">
         <GridPattern
@@ -761,103 +762,90 @@ export default function HomePage() {
       {/* Navbar */}
       <Navbar />
 
-      {/* Hero Section - Split Screen layout inspired by totnghiep.hcmute.edu.vn */}
-      <section className="container relative z-10 min-h-[calc(100vh-4rem)] flex items-center justify-center py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center w-full relative">
-          
-          {/* Left Column: Heading and description */}
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, ease }}
-            className="flex flex-col text-left justify-center relative p-8 rounded-3xl overflow-hidden"
-          >
-            {/* Dot Pattern Background behind left column text */}
-            <DotPattern
-              width={16}
-              height={16}
-              cx={1}
-              cy={1}
-              cr={1}
-              className="absolute inset-0 z-[-1] opacity-50 dark:opacity-30 [mask-image:radial-gradient(350px_circle_at_left_top,white,transparent)]"
-            />
+      {/* Hero Section - Split Screen layout */}
+      <section className="relative z-10 min-h-[calc(100vh-4rem)] flex flex-col lg:flex-row items-stretch w-full overflow-hidden border-b border-border/40">
 
-            <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-3 block">
-              Bypass Danger. Earn Rewards.
-            </span>
+        {/* Left Column: Heading and description */}
+        <motion.div
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, ease }}
+          className="w-full lg:w-1/2 flex flex-col justify-center relative py-16 px-6 sm:px-12 lg:pl-[calc((100vw-min(100vw,1400px))/2+2rem)] lg:pr-16 z-10"
+        >
+          {/* Grid Pattern Background visible behind left column text */}
+          <GridPattern
+            squares={[
+              [4, 4],
+              [5, 1],
+              [8, 2],
+              [5, 3],
+              [5, 5],
+              [10, 10],
+              [12, 15],
+              [15, 10],
+              [10, 15],
+              [15, 10],
+              [10, 15],
+              [15, 10],
+            ]}
+            className={cn(
+              "[mask-image:radial-gradient(400px_circle_at_center,white,transparent)]",
+              "inset-x-0 inset-y-[-30%] h-[200%] skew-y-12",
+              "absolute inset-0 z-[-1] opacity-70 stroke-gray-300 dark:stroke-zinc-800 fill-blue-500/5 dark:fill-blue-500/10"
+            )}
+          />
 
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight leading-tight mb-6 text-foreground">
-              <AuroraText>GoSafe</AuroraText> Active Traffic Hazard Routing
-            </h1>
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight leading-tight mb-6 text-foreground">
+            <AuroraText className="text-5xl sm:text-6xl lg:text-7xl font-normal tracking-tight inline-block mb-1">GoSafe</AuroraText> <br /> Fast, Smart & Safe
+          </h1>
 
-            <p className="text-sm text-muted-foreground leading-relaxed mb-8 max-w-lg">
-              Navigate floods, potholes, and blocks in real-time. Report hazards to protect commuters and earn local merchant vouchers.
-            </p>
+          <p className="text-base sm:text-lg lg:text-xl font-medium text-foreground leading-relaxed mb-8 max-w-lg">
+            Built for the community, driving sustainable cities. Navigate smart, report hazards, and stay safe.
+          </p>
 
-            {/* Stats Bar */}
-            <div className="grid grid-cols-3 gap-4 border-y py-4 mb-8 text-center sm:text-left max-w-md border-border/50">
-              <div>
-                <span className="text-2xl font-medium text-foreground">3</span>
-                <p className="text-[10px] text-muted-foreground uppercase font-medium tracking-wider">Active Hazards</p>
+          {/* Action Area inside Hero */}
+          <div className="max-w-md w-full">
+            {!session ? (
+              <div className="flex flex-col gap-3 items-start justify-center">
+                <Button
+                  onClick={() => signIn("google")}
+                  className="rounded-full px-6 py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium flex items-center gap-2 border-0 shadow transition-all"
+                >
+                  <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05" />
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335" />
+                  </svg>
+                  Authenticate with Google
+                </Button>
               </div>
-              <div>
-                <span className="text-2xl font-medium text-foreground">150+</span>
-                <p className="text-[10px] text-muted-foreground uppercase font-medium tracking-wider">Detours Guided</p>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <Button onClick={scrollToMap} className="rounded-full px-6 py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium flex items-center gap-2 border-0 shadow transition-all">
+                  <Map className="w-4 h-4" /> Go to Live Map
+                </Button>
               </div>
-              <div>
-                <span className="text-2xl font-medium text-foreground">100%</span>
-                <p className="text-[10px] text-muted-foreground uppercase font-medium tracking-wider">Scrubbed PII</p>
-              </div>
-            </div>
+            )}
+          </div>
+        </motion.div>
 
-            {/* Action Area inside Hero */}
-            <div className="max-w-md w-full">
-              {!session ? (
-                <div className="flex flex-col gap-3 items-start justify-center">
-                  <span className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Login to continue</span>
-                  <Button
-                    onClick={() => signIn("google")}
-                    className="rounded-full px-6 py-5 bg-blue-600 hover:bg-blue-700 text-white font-medium flex items-center gap-2 border-0 shadow transition-all"
-                  >
-                    <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
-                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
-                    </svg>
-                    Authenticate with Google
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button onClick={scrollToMap} className="rounded-full px-6 py-5 bg-blue-600 hover:bg-blue-700 text-white font-medium flex items-center gap-2 border-0 shadow transition-all">
-                    <Map className="w-4 h-4" /> Go to Live Map
-                  </Button>
-                  <Button variant="outline" onClick={handleConsentToggle} className="rounded-full px-6 py-5 font-medium text-xs flex items-center gap-1.5 border border-border/50">
-                    {consent ? <CheckCircle className="w-4 h-4 text-green-500" /> : <Eye className="w-4 h-4 text-muted-foreground" />} Consent Status: {consent ? "On" : "Off"}
-                  </Button>
-                </div>
-              )}
-            </div>
-          </motion.div>
+        {/* Right Column: Premium Banner Image */}
+        <motion.div
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, ease, delay: 0.15 }}
+          className="w-full lg:w-1/2 lg:absolute lg:right-0 lg:top-0 lg:bottom-0 relative h-[380px] lg:h-auto overflow-hidden bg-transparent"
+        >
+          {/* Glowing background radial */}
+          <div className="absolute inset-0 z-10 rounded-full filter blur-3xl" />
 
-          {/* Right Column: Premium Banner Image */}
-          <motion.div
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6, ease, delay: 0.15 }}
-            className="relative lg:absolute lg:right-[-120px] lg:top-0 lg:bottom-0 lg:h-full flex items-stretch justify-center lg:justify-end min-h-[380px] lg:w-[48vw] overflow-visible pointer-events-none"
-          >
-            {/* Glowing background radial */}
-            <div className="absolute inset-0 z-[-1] bg-gradient-to-tr from-blue-500/10 via-indigo-500/5 to-transparent rounded-full filter blur-3xl" />
-
-            <img 
-              src="/assets/banner.png" 
-              alt="GoSafe City Map Overview" 
-              className="w-full h-full lg:h-full lg:max-w-none object-cover lg:object-left-top select-none"
-            />
-          </motion.div>
-        </div>
+          <img
+            src="/assets/banner.png"
+            alt="GoSafe City Map Overview"
+            className="absolute inset-0 w-full h-full object-cover object-left-top select-none"
+          />
+        </motion.div>
       </section>
 
       {/* Script for Goong Map */}
@@ -868,69 +856,38 @@ export default function HomePage() {
       />
 
       {/* Map Section - Below Hero - OPEN TO EVERYONE (No session check) */}
-      <section id="map-section" className="bg-muted/15 border-y border-border/40 py-16">
+      <section id="map-section" className="pt-20 pb-0 bg-transparent">
         <div className="container">
-          
-          <div className="text-left mb-8">
-            <h2 className="text-3xl sm:text-4xl font-medium tracking-tight text-foreground">
-              <AuroraText>Live Hazard Map</AuroraText>
+
+          <div className="text-left mb-10">
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-foreground">
+              Our <AuroraText>GoSafe</AuroraText> Map
             </h2>
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl mt-2 leading-relaxed">
-              View live commuter overrides and CV camera feeds. Click coordinates to report new alerts.
+            <p className="text-base sm:text-lg lg:text-xl font-medium text-foreground max-w-2xl mt-3 leading-relaxed">
+              Real-time commuter alerts and AI camera feeds. Click coordinates to report new incidents.
             </p>
           </div>
+        </div>
 
-          {/* The map card - ALWAYS RENDERED */}
-          <div className="w-full border border-border/50 rounded-[32px] bg-card overflow-hidden shadow-2xl relative flex flex-col h-[600px]">
-            
-            {/* Map Info Bar */}
-            <div className="px-5 py-3 border-b border-border/50 bg-muted/20 flex items-center justify-between text-[11px] font-medium">
-              <div className="flex items-center gap-3">
-                {session ? (
-                  <>
-                    <span className="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-teal-400 via-indigo-500 to-purple-600 text-white font-medium flex items-center gap-1">
-                      ✨ {points} credits
-                    </span>
-                    <span className="text-muted-foreground">|</span>
-                    <label className="flex items-center gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground">
-                      <input 
-                        type="checkbox" 
-                        checked={consent} 
-                        onChange={handleConsentToggle}
-                        className="rounded border-border accent-indigo-500 cursor-pointer w-3.5 h-3.5"
-                      />
-                      Privacy Consent Logs
-                    </label>
-                  </>
-                ) : (
-                  <span className="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-teal-400 via-indigo-500 to-purple-600 text-white font-medium">
-                    ✨ Guest Mode - Sign in to earn credits
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider text-[9px]">
-                <span className="w-2 h-2 rounded-full bg-green-500" />
-                <span>{session ? session.user?.role : "GUEST"} MODE</span>
-              </div>
-            </div>
+        {/* The map card - ALWAYS RENDERED (Full Width, No Padding) */}
+        <div className="w-full border-y border-border/50 bg-card shadow-2xl relative flex flex-col h-[750px] p-0 gap-0 overflow-hidden">
 
-            {/* Map rendering wrapper */}
-            <div className="flex-1 relative overflow-hidden">
-              
-              {/* Weather widget */}
-              {weather && (
-                <div className="absolute top-3 left-3 z-20 p-2.5 rounded-xl bg-background/95 border shadow-md text-[10px] max-w-[150px] border-border/50">
-                  <p className="font-medium uppercase text-muted-foreground text-[8px]">Weather Widget</p>
-                  <p className="font-medium capitalize truncate text-foreground">{weather.description}</p>
-                  <p className="text-muted-foreground mt-0.5">Rain: <strong>{weather.rainfall.toFixed(1)} mm</strong></p>
-                </div>
-              )}
+          {/* Map rendering wrapper */}
+          <div className="flex-1 relative overflow-hidden h-full w-full">
+
+            {/* Weather widget */}
+            {weather && (
+              <div className="absolute top-3 left-3 z-20 p-2.5 rounded-xl bg-background/95 border shadow-md text-[10px] max-w-[150px] border-border/50">
+                <p className="font-semibold capitalize truncate text-foreground">{weather.description}</p>
+                <p className="text-foreground mt-0.5">Rainfall: <strong>{weather.rainfall.toFixed(1)} mm</strong></p>
+              </div>
+            )}
 
               {/* Navigation simulation widget */}
               {navStep !== "idle" && (
                 <div className="absolute top-3 right-3 z-20 p-3 rounded-xl bg-background border border-border shadow-lg w-[240px] text-[10px] flex flex-col gap-2 border-border/50">
                   <div className="flex items-center justify-between font-medium">
-                    <span className="flex items-center gap-1"><Navigation className="w-3.5 h-3.5 text-blue-500 animate-pulse" /> Detour Routing</span>
+                    <span className="flex items-center gap-1 font-bold"><Navigation className="w-3.5 h-3.5 text-primary animate-pulse" /> Detour Routing</span>
                     <Button variant="ghost" size="icon" onClick={() => {
                       setNavStep("idle");
                       if (map && map.getLayer("route-layer")) {
@@ -941,19 +898,19 @@ export default function HomePage() {
                   </div>
                   {navStep === "routing" ? (
                     <>
-                      <p className="text-orange-500 bg-orange-500/10 p-1.5 rounded font-medium border border-orange-500/20">
-                        Active flood reported. Route recalculated.
+                      <p className="text-orange-500 bg-orange-500/10 p-1.5 rounded font-semibold border border-orange-500/20">
+                        Flooding detected. Rerouted automatically.
                       </p>
-                      <Button onClick={triggerNavStart} className="w-full h-7 rounded-lg bg-blue-500 text-white font-medium text-[10px] border-0">
+                      <Button onClick={triggerNavStart} className="w-full h-7 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-[10px] border-0">
                         Accept Detour
                       </Button>
                     </>
                   ) : (
                     <>
-                      <p className="text-green-500 bg-green-500/10 p-1.5 rounded font-medium border border-green-500/20">
-                        Active guide. Bypassing active blockages.
+                      <p className="text-green-500 bg-green-500/10 p-1.5 rounded font-semibold border border-green-500/20">
+                        Active guidance. Bypassing blockages.
                       </p>
-                      <Button onClick={() => handleArriveDestination(5, "Perfect bypass.")} className="w-full h-7 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-[10px] border-0">
+                      <Button onClick={() => handleArriveDestination(5, "Hazard bypassed successfully.")} className="w-full h-7 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-[10px] border-0">
                         Arrived (+5 credits)
                       </Button>
                     </>
@@ -965,7 +922,7 @@ export default function HomePage() {
               {selectedIncident && (
                 <div className="absolute bottom-3 left-3 right-3 z-20 p-3 rounded-xl bg-background border border-border shadow-2xl flex flex-col gap-2 text-[10px] border-border/50">
                   <div className="flex items-center justify-between border-b pb-1 border-border/50">
-                    <span className="font-medium capitalize">{selectedIncident.category} Alert</span>
+                    <span className="font-bold capitalize">Alert: {selectedIncident.category === "FLOODING" ? "Flooding" : selectedIncident.category === "ACCIDENT" ? "Accident" : selectedIncident.category === "DEBRIS" ? "Road Debris" : "Pothole"}</span>
                     <Button variant="ghost" size="icon" onClick={() => setSelectedIncident(null)} className="h-5 w-5 rounded-full"><XCircle className="w-3.5 h-3.5" /></Button>
                   </div>
                   <div className="flex gap-2">
@@ -973,18 +930,18 @@ export default function HomePage() {
                       <img src={selectedIncident.reports[0].imageUrl} alt="attachment" className="w-12 h-12 object-cover rounded-lg border border-border/50" />
                     )}
                     <div className="flex-1">
-                      <p className="font-medium">{selectedIncident.locationName}</p>
-                      <p className="text-muted-foreground">{selectedIncident.description}</p>
+                      <p className="font-bold">{selectedIncident.locationName}</p>
+                      <p className="text-foreground font-semibold">{selectedIncident.description}</p>
                     </div>
                   </div>
-                  <div className="bg-muted/50 p-2 rounded-lg text-muted-foreground leading-normal border text-[9px] border-border/50">
-                    <strong>AI Navigation Advice: </strong> {selectedIncident.recommendation}
+                  <div className="bg-muted/50 p-2 rounded-lg text-foreground font-semibold leading-normal border text-[9px] border-border/50">
+                    <strong>AI Recommendation: </strong> {selectedIncident.recommendation}
                   </div>
                   <div className="flex items-center justify-end gap-2 border-t pt-1.5 border-border/50">
-                    <span className="text-[8px] text-muted-foreground mr-auto">Is this incident cleared?</span>
+                    <span className="text-[9px] text-foreground mr-auto">Is this incident cleared?</span>
                     <Button size="sm" variant="outline" onClick={async () => {
                       if (!session) {
-                        toast.error("Please sign in to verify incidents!");
+                        toast.error("Please sign in to verify incident!");
                         return;
                       }
                       try {
@@ -993,11 +950,11 @@ export default function HomePage() {
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ action: "arrive", sessionId: "feedback", rating: 5, comment: "Incident cleared" }),
                         });
-                        toast.success("Feedback recorded! +5 points awarded.");
+                        toast.success("Feedback recorded! +5 credits earned.");
                         fetchUserProfile();
                         setSelectedIncident(null);
-                      } catch (e) {}
-                    }} className="h-6 text-[8px] font-medium rounded-lg px-2 border-border/50"><CheckCircle className="w-3 h-3 text-green-500 mr-1" /> Yes, Cleared (+5)</Button>
+                      } catch (e) { }
+                    }} className="h-6 text-[8px] font-bold rounded-lg px-2 border-border/50"><CheckCircle className="w-3 h-3 text-green-500 mr-1" /> Yes, Cleared (+5)</Button>
                   </div>
                 </div>
               )}
@@ -1006,16 +963,16 @@ export default function HomePage() {
               <div className="absolute bottom-4 right-4 z-20 flex flex-col gap-2">
                 <Button onClick={() => {
                   if (!session) {
-                    toast.error("Please sign in to access safety routing navigation!");
+                    toast.error("Please sign in to use detour routing!");
                     return;
                   }
                   handleStartNavigation();
-                }} disabled={isNavigating} className="h-10 w-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg flex items-center justify-center border-0 hover:scale-105 transition-transform">
+                }} disabled={isNavigating} className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg flex items-center justify-center border-0 hover:scale-105 transition-transform">
                   <Navigation className="w-4.5 h-4.5" />
                 </Button>
                 <Button onClick={() => {
                   if (!session) {
-                    toast.error("Please sign in to report road hazards!");
+                    toast.error("Please sign in to report hazards!");
                     return;
                   }
                   setIsReportOpen(true);
@@ -1025,413 +982,222 @@ export default function HomePage() {
               </div>
 
               {/* Goong map container */}
-              <div id="goong-map" className="w-full h-full bg-muted/20" />
+              <div id="goong-map" className="w-full h-full bg-transparent" />
             </div>
 
           </div>
-        </div>
       </section>
 
-      {/* Tabs & Vouchers Section - ONLY visible if logged in */}
-      {session && (
+      {/* Admin Control Panel Section - ONLY visible if logged in as Admin */}
+      {session && session.user?.role === "ADMIN" && (
         <section className="container py-16">
-          <div className="w-full max-w-5xl mx-auto">
-            
-            <Tabs defaultValue="vouchers" className="w-full">
-              <TabsList className={cn(
-                "grid w-full max-w-[400px] mx-auto mb-10 rounded-3xl h-12 p-1.5 bg-background border border-border",
-                session.user?.role === "ADMIN" ? "grid-cols-2" : "grid-cols-1 max-w-[200px]"
-              )}>
-                <TabsTrigger value="vouchers" className="rounded-2xl flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs font-medium border-0">
-                  <Award className="w-4 h-4" />
-                  Vouchers Catalog
-                </TabsTrigger>
-                {session.user?.role === "ADMIN" && (
-                  <TabsTrigger value="admin" className="rounded-2xl flex items-center gap-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white text-xs font-medium border-0">
-                    <Sliders className="w-4 h-4" />
-                    Admin Panel
-                  </TabsTrigger>
-                )}
-              </TabsList>
+          <div className="w-full max-w-5xl mx-auto flex flex-col gap-6">
+            <h3 className="text-xl font-bold border-b pb-3 border-border/50">Admin Control Panel</h3>
 
-              {/* VOUCHERS CATALOG CONTENT */}
-              <TabsContent value="vouchers" className="mt-0 outline-none flex flex-col gap-8">
-                
-                <div className="p-6 rounded-3xl bg-gradient-to-r from-teal-400/5 via-indigo-500/5 to-purple-600/5 border border-indigo-500/10 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div>
-                    <h3 className="text-lg font-medium">Credits Wallet Balance</h3>
-                    <p className="text-xs text-muted-foreground">You currently have <strong>{points} credits</strong>. Exchange them for merchant vouchers below.</p>
+            {/* Admin subtabs navigation */}
+            <div className="flex border-b border-border text-xs gap-4 font-medium pb-1.5 overflow-x-auto border-border/50">
+              <button
+                onClick={() => setActiveAdminSubTab("reports")}
+                className={cn("pb-2 px-1 border-b-2 border-transparent transition-all whitespace-nowrap bg-transparent border-0", activeAdminSubTab === "reports" && "border-primary text-primary font-bold")}
+              >
+                Incident Reports ({pendingReports.length})
+              </button>
+              <button
+                onClick={() => setActiveAdminSubTab("hazards")}
+                className={cn("pb-2 px-1 border-b-2 border-transparent transition-all whitespace-nowrap bg-transparent border-0", activeAdminSubTab === "hazards" && "border-primary text-primary font-bold")}
+              >
+                Active Hazards ({getFilteredIncidents().length})
+              </button>
+              <button
+                onClick={() => setActiveAdminSubTab("vouchers")}
+                className={cn("pb-2 px-1 border-b-2 border-transparent transition-all whitespace-nowrap bg-transparent border-0", activeAdminSubTab === "vouchers" && "border-primary text-primary font-bold")}
+              >
+                Vouchers Manager
+              </button>
+              <button
+                onClick={() => setActiveAdminSubTab("consent")}
+                className={cn("pb-2 px-1 border-b-2 border-transparent transition-all whitespace-nowrap bg-transparent border-0", activeAdminSubTab === "consent" && "border-primary text-primary font-bold")}
+              >
+                Privacy Consent Logs
+              </button>
+            </div>
+
+            {/* Subtab: Pending reports */}
+            {activeAdminSubTab === "reports" && (
+              <div className="flex flex-col gap-3">
+                {pendingReports.length === 0 ? (
+                  <div className="text-center py-10 border rounded-2xl text-foreground text-xs border-border/50">
+                    No pending incident reports.
                   </div>
-                  <Award className="w-10 h-10 text-indigo-500 animate-pulse" />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {vouchers.map((voucher: any) => (
-                    <div key={voucher.id} className="p-5 rounded-2xl border bg-card flex flex-col justify-between gap-4 shadow-sm hover:shadow-md transition-shadow border-border/50">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center justify-between gap-2 border-b pb-2 border-border/50">
-                          <h5 className="font-medium text-xs leading-snug">{voucher.title}</h5>
-                          <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-500 font-medium text-[10px] whitespace-nowrap">
-                            {voucher.pointsRequired} pts
-                          </span>
+                ) : (
+                  pendingReports.map((rep: any) => (
+                    <div key={rep.id} className="p-4 border rounded-2xl bg-card flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-xs shadow-sm border-border/50">
+                      <div className="flex gap-3">
+                        {rep.imageUrl && (
+                          <img src={rep.imageUrl} alt="attached" className="w-12 h-12 object-cover rounded-xl border border-border/50" />
+                        )}
+                        <div>
+                          <span className="font-bold capitalize text-foreground">{rep.category === "FLOODING" ? "Flooding" : rep.category === "ACCIDENT" ? "Accident" : rep.category === "DEBRIS" ? "Road Debris" : "Pothole"} ({rep.type})</span>
+                          <p className="text-foreground mt-0.5 font-medium">{rep.description}</p>
+                          <span className="text-[9px] text-foreground font-semibold block mt-1">Coordinates: {rep.latitude.toFixed(4)}, {rep.longitude.toFixed(4)}</span>
                         </div>
-                        <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">{voucher.description}</p>
                       </div>
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1.5 border-t border-border/50">
-                        <span>Stock: <span className="font-medium text-foreground">{voucher.quantity}</span></span>
-                        <Button 
-                          size="sm"
-                          disabled={points < voucher.pointsRequired || voucher.quantity <= 0}
-                          onClick={() => handleVoucherExchange(voucher.id, voucher.pointsRequired)}
-                          className="h-7 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-medium border-0"
-                        >
-                          Redeem
-                        </Button>
+                      <div className="flex items-center gap-2 self-end sm:self-center">
+                        <Button variant="outline" size="sm" onClick={() => handleRejectReport(rep.id)} className="h-8 rounded-xl px-3 text-[10px] text-red-500 border-red-500/20 font-bold">Reject</Button>
+                        <Button size="sm" onClick={() => handleOpenApprove(rep)} className="h-8 rounded-xl px-3 text-[10px] bg-primary hover:bg-primary/90 text-primary-foreground font-bold border-0">Verify &amp; AI Assess</Button>
                       </div>
                     </div>
-                  ))}
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Subtab: Active Hazards */}
+            {activeAdminSubTab === "hazards" && (
+              <div className="flex flex-col gap-4">
+                {/* Advanced filters */}
+                <div className="flex flex-wrap gap-2 text-[10px]">
+                  <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="p-2 border rounded-xl bg-background font-bold border-border/50">
+                    <option value="ALL">All Categories</option>
+                    <option value="FLOODING">Flooding</option>
+                    <option value="ACCIDENT">Accident</option>
+                    <option value="DEBRIS">Debris</option>
+                    <option value="POTHOLES">Potholes</option>
+                  </select>
+                  <select value={filterRiskLevel} onChange={(e) => setFilterRiskLevel(e.target.value)} className="p-2 border rounded-xl bg-background font-bold border-border/50">
+                    <option value="ALL">All Risk Levels</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                  </select>
+                  <input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="p-2 border rounded-xl bg-background w-28 border-border/50 font-bold" />
                 </div>
 
-                {/* Exchanged history */}
-                <div className="pt-6 border-t border-border/50">
-                  <h4 className="font-medium text-xs uppercase tracking-wider text-muted-foreground mb-4">My Claimed Voucher History</h4>
-                  {claimedVouchers.length === 0 ? (
-                    <div className="text-center py-6 text-muted-foreground text-xs border border-dashed rounded-2xl border-border/50">
-                      You have not claimed any vouchers yet.
+                <div className="flex flex-col gap-3">
+                  {getFilteredIncidents().length === 0 ? (
+                    <div className="text-center py-10 border rounded-2xl text-foreground text-xs border-border/50">
+                      No matching active hazards.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {claimedVouchers.map((c: any) => (
-                        <div key={c.id} className="p-3.5 border rounded-2xl bg-card flex justify-between items-center text-xs shadow-sm border-border/50">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="font-medium">{c.voucher.title}</span>
-                            <span className="font-mono text-[9px] text-muted-foreground uppercase">{c.voucher.code}</span>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <span className="text-[10px] text-muted-foreground">{new Date(c.exchangedAt).toLocaleDateString()}</span>
-                            <span className="px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 font-medium text-[8px] uppercase">{c.status}</span>
-                          </div>
+                    getFilteredIncidents().map((inc: any) => (
+                      <div key={inc.id} className="p-4 border rounded-2xl bg-card flex justify-between items-center text-xs shadow-sm border-border/50">
+                        <div>
+                          <span className={cn("px-1.5 py-0.5 rounded text-[8px] font-bold uppercase mr-2", inc.riskLevel === "HIGH" ? "bg-red-500/10 text-red-500" : "bg-orange-500/10 text-orange-500")}>
+                            {inc.riskLevel === "HIGH" ? "HIGH" : inc.riskLevel === "MEDIUM" ? "MEDIUM" : "LOW"} ({inc.riskScore}%)
+                          </span>
+                          <span className="font-bold text-foreground">{inc.locationName}</span>
+                          <p className="text-foreground font-medium mt-1">{inc.description}</p>
                         </div>
-                      ))}
-                    </div>
+                        <Button variant="outline" size="sm" onClick={() => handleClearIncident(inc.id)} className="h-8 rounded-xl text-[10px] text-green-500 border-green-500/20 font-bold">Mark Cleared</Button>
+                      </div>
+                    ))
                   )}
                 </div>
+              </div>
+            )}
 
-              </TabsContent>
-
-              {/* ADMIN PANEL CONTENT */}
-              {session.user?.role === "ADMIN" && (
-                <TabsContent value="admin" className="mt-0 outline-none flex flex-col gap-6">
-                  
-                  {/* Admin subtabs navigation */}
-                  <div className="flex border-b border-border text-xs gap-4 font-medium pb-1.5 overflow-x-auto border-border/50">
-                    <button 
-                      onClick={() => setActiveAdminSubTab("reports")} 
-                      className={cn("pb-2 px-1 border-b-2 border-transparent transition-all whitespace-nowrap bg-transparent border-0", activeAdminSubTab === "reports" && "border-primary text-primary font-medium")}
-                    >
-                      Incident Reports ({pendingReports.length})
-                    </button>
-                    <button 
-                      onClick={() => setActiveAdminSubTab("hazards")} 
-                      className={cn("pb-2 px-1 border-b-2 border-transparent transition-all whitespace-nowrap bg-transparent border-0", activeAdminSubTab === "hazards" && "border-primary text-primary font-medium")}
-                    >
-                      Active Hazards ({getFilteredIncidents().length})
-                    </button>
-                    <button 
-                      onClick={() => setActiveAdminSubTab("vouchers")} 
-                      className={cn("pb-2 px-1 border-b-2 border-transparent transition-all whitespace-nowrap bg-transparent border-0", activeAdminSubTab === "vouchers" && "border-primary text-primary font-medium")}
-                    >
-                      Vouchers Manager
-                    </button>
-                    <button 
-                      onClick={() => setActiveAdminSubTab("consent")} 
-                      className={cn("pb-2 px-1 border-b-2 border-transparent transition-all whitespace-nowrap bg-transparent border-0", activeAdminSubTab === "consent" && "border-primary text-primary font-medium")}
-                    >
-                      Privacy Consent Logs
-                    </button>
-                  </div>
-
-                  {/* Subtab: Pending reports */}
-                  {activeAdminSubTab === "reports" && (
-                    <div className="flex flex-col gap-3">
-                      {pendingReports.length === 0 ? (
-                        <div className="text-center py-10 border rounded-2xl text-muted-foreground text-xs border-border/50">
-                          No pending incident reports.
-                        </div>
-                      ) : (
-                        pendingReports.map((rep: any) => (
-                          <div key={rep.id} className="p-4 border rounded-2xl bg-card flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-xs shadow-sm border-border/50">
-                            <div className="flex gap-3">
-                              {rep.imageUrl && (
-                                <img src={rep.imageUrl} alt="attached" className="w-12 h-12 object-cover rounded-xl border border-border/50" />
-                              )}
-                              <div>
-                                <span className="font-medium capitalize text-foreground">{rep.category} ({rep.type})</span>
-                                <p className="text-muted-foreground mt-0.5">{rep.description}</p>
-                                <span className="text-[9px] text-muted-foreground block mt-1">Coords: {rep.latitude.toFixed(4)}, {rep.longitude.toFixed(4)}</span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 self-end sm:self-center">
-                              <Button variant="outline" size="sm" onClick={() => handleRejectReport(rep.id)} className="h-8 rounded-xl px-3 text-[10px] text-red-500 border-red-500/20 font-medium">Reject</Button>
-                              <Button size="sm" onClick={() => handleOpenApprove(rep)} className="h-8 rounded-xl px-3 text-[10px] bg-blue-600 hover:bg-blue-700 text-white font-medium border-0">Verify &amp; AI Assess</Button>
-                            </div>
-                          </div>
-                        ))
-                      )}
+            {/* Subtab: Vouchers creation */}
+            {activeAdminSubTab === "vouchers" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                <div className="p-5 border rounded-2xl bg-card border-border/50">
+                  <h4 className="font-bold mb-3">Add Voucher</h4>
+                  <form onSubmit={handleAddVoucherSubmit} className="flex flex-col gap-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" value={voucherCode} onChange={(e) => setVoucherCode(e.target.value)} placeholder="VOUCHER CODE" className="p-3 border rounded-xl bg-background uppercase font-mono font-bold border-border/50" />
+                      <input type="text" value={voucherTitle} onChange={(e) => setVoucherTitle(e.target.value)} placeholder="Voucher Title" className="p-3 border rounded-xl bg-background font-bold border-border/50" />
                     </div>
-                  )}
-
-                  {/* Subtab: Active Hazards */}
-                  {activeAdminSubTab === "hazards" && (
-                    <div className="flex flex-col gap-4">
-                      {/* Advanced filters */}
-                      <div className="flex flex-wrap gap-2 text-[10px]">
-                        <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="p-2 border rounded-xl bg-background font-medium border-border/50">
-                          <option value="ALL">All Categories</option>
-                          <option value="FLOODING">Flooding</option>
-                          <option value="ACCIDENT">Accident</option>
-                          <option value="DEBRIS">Debris</option>
-                          <option value="POTHOLES">Potholes</option>
-                        </select>
-                        <select value={filterRiskLevel} onChange={(e) => setFilterRiskLevel(e.target.value)} className="p-2 border rounded-xl bg-background font-medium border-border/50">
-                          <option value="ALL">All Risk Levels</option>
-                          <option value="HIGH">High</option>
-                          <option value="MEDIUM">Medium</option>
-                          <option value="LOW">Low</option>
-                        </select>
-                        <input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="p-2 border rounded-xl bg-background w-28 border-border/50" />
-                      </div>
-
-                      <div className="flex flex-col gap-3">
-                        {getFilteredIncidents().length === 0 ? (
-                          <div className="text-center py-10 border rounded-2xl text-muted-foreground text-xs border-border/50">
-                            No matching active hazards.
-                          </div>
-                        ) : (
-                          getFilteredIncidents().map((inc: any) => (
-                            <div key={inc.id} className="p-4 border rounded-2xl bg-card flex justify-between items-center text-xs shadow-sm border-border/50">
-                              <div>
-                                <span className={cn("px-1.5 py-0.5 rounded text-[8px] font-medium uppercase mr-2", inc.riskLevel === "HIGH" ? "bg-red-500/10 text-red-500" : "bg-orange-500/10 text-orange-500")}>
-                                  {inc.riskLevel} ({inc.riskScore}%)
-                                </span>
-                                <span className="font-medium text-foreground">{inc.locationName}</span>
-                                <p className="text-muted-foreground mt-1">{inc.description}</p>
-                              </div>
-                              <Button variant="outline" size="sm" onClick={() => handleClearIncident(inc.id)} className="h-8 rounded-xl text-[10px] text-green-500 border-green-500/20 font-medium">Mark Cleared</Button>
-                            </div>
-                          ))
-                        )}
-                      </div>
+                    <textarea value={voucherDesc} onChange={(e) => setVoucherDesc(e.target.value)} placeholder="Description details..." className="p-3 border rounded-xl bg-background h-16 resize-none font-bold border-border/50" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="number" value={voucherPoints} onChange={(e) => setVoucherPoints(parseInt(e.target.value) || 0)} placeholder="Points Required" className="p-3 border rounded-xl bg-background font-bold border-border/50" />
+                      <input type="number" value={voucherQty} onChange={(e) => setVoucherQty(parseInt(e.target.value) || 0)} placeholder="Quantity" className="p-3 border rounded-xl bg-background font-bold border-border/50" />
                     </div>
-                  )}
+                    <Button type="submit" className="h-10 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold border-0">Add Voucher</Button>
+                  </form>
+                </div>
 
-                  {/* Subtab: Vouchers creation */}
-                  {activeAdminSubTab === "vouchers" && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
-                      <div className="p-5 border rounded-2xl bg-card border-border/50">
-                        <h4 className="font-medium mb-3">Add Merchant Voucher</h4>
-                        <form onSubmit={handleAddVoucherSubmit} className="flex flex-col gap-3">
-                          <div className="grid grid-cols-2 gap-2">
-                            <input type="text" value={voucherCode} onChange={(e) => setVoucherCode(e.target.value)} placeholder="CODE" className="p-3 border rounded-xl bg-background uppercase font-mono border-border/50" />
-                            <input type="text" value={voucherTitle} onChange={(e) => setVoucherTitle(e.target.value)} placeholder="Voucher Title" className="p-3 border rounded-xl bg-background border-border/50" />
-                          </div>
-                          <textarea value={voucherDesc} onChange={(e) => setVoucherDesc(e.target.value)} placeholder="Description details..." className="p-3 border rounded-xl bg-background h-16 resize-none border-border/50" />
-                          <div className="grid grid-cols-2 gap-2">
-                            <input type="number" value={voucherPoints} onChange={(e) => setVoucherPoints(parseInt(e.target.value) || 0)} placeholder="Points Required" className="p-3 border rounded-xl bg-background border-border/50" />
-                            <input type="number" value={voucherQty} onChange={(e) => setVoucherQty(parseInt(e.target.value) || 0)} placeholder="Quantity" className="p-3 border rounded-xl bg-background border-border/50" />
-                          </div>
-                          <Button type="submit" className="h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium border-0">Add Voucher</Button>
-                        </form>
-                      </div>
+                <div className="p-5 border rounded-2xl bg-orange-50/5 flex flex-col gap-3 border-border/50">
+                  <div className="flex items-center gap-1.5 text-orange-500 font-bold"><Bell className="w-4 h-4" /> Broadcast Emergency Notice</div>
+                  <form onSubmit={handleBroadcastAlert} className="flex flex-col gap-2">
+                    <input type="text" value={broadcastTitle} onChange={(e) => setBroadcastTitle(e.target.value)} placeholder="Notice Title" className="p-3 border rounded-xl bg-background font-bold border-border/50" />
+                    <input type="text" value={broadcastMessage} onChange={(e) => setBroadcastMessage(e.target.value)} placeholder="Instruction message alert..." className="p-3 border rounded-xl bg-background font-bold border-border/50" />
+                    <Button type="submit" className="h-10 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold mt-1 border-0">Broadcast Alert</Button>
+                  </form>
+                </div>
+              </div>
+            )}
 
-                      <div className="p-5 border rounded-2xl bg-orange-50/5 flex flex-col gap-3 border-border/50">
-                        <div className="flex items-center gap-1.5 text-orange-500 font-medium"><Bell className="w-4 h-4" /> Broadcast Emergency Notice</div>
-                        <form onSubmit={handleBroadcastAlert} className="flex flex-col gap-2">
-                          <input type="text" value={broadcastTitle} onChange={(e) => setBroadcastTitle(e.target.value)} placeholder="Notice Title" className="p-3 border rounded-xl bg-background border-border/50" />
-                          <input type="text" value={broadcastMessage} onChange={(e) => setBroadcastMessage(e.target.value)} placeholder="Instruction message alert..." className="p-3 border rounded-xl bg-background border-border/50" />
-                          <Button type="submit" className="h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium mt-1 border-0">Broadcast Alert</Button>
-                        </form>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Subtab: User consent */}
-                  {activeAdminSubTab === "consent" && (
-                    <div className="border rounded-2xl overflow-hidden text-xs shadow-sm border-border/50">
-                      <table className="w-full">
-                        <thead className="bg-muted text-muted-foreground text-[10px] font-medium border-b border-border/50">
-                          <tr>
-                            <th className="p-3 text-left">Commuter</th>
-                            <th className="p-3 text-left">Consent Status</th>
-                            <th className="p-3 text-left">Credits Balance</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {adminUsers.map((usr: any) => (
-                            <tr key={usr.id} className="border-b last:border-0 hover:bg-muted/10 bg-card border-border/50">
-                              <td className="p-3">
-                                <p className="font-medium">{usr.name || "Anonymous"}</p>
-                                <p className="text-[10px] text-muted-foreground">{usr.email}</p>
-                              </td>
-                              <td className="p-3">
-                                <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-medium uppercase", usr.consent ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500")}>
-                                  {usr.consent ? "Granted" : "Revoked"}
-                                </span>
-                              </td>
-                              <td className="p-3 font-medium">{usr.points}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                </TabsContent>
-              )}
-            </Tabs>
+            {/* Subtab: User consent */}
+            {activeAdminSubTab === "consent" && (
+              <div className="border rounded-2xl overflow-hidden text-xs shadow-sm border-border/50">
+                <table className="w-full">
+                  <thead className="bg-muted text-foreground text-[10px] font-bold border-b border-border/50">
+                    <tr>
+                      <th className="p-3 text-left">User</th>
+                      <th className="p-3 text-left">Consent Status</th>
+                      <th className="p-3 text-left">Credits Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminUsers.map((usr: any) => (
+                      <tr key={usr.id} className="border-b last:border-0 hover:bg-muted/10 bg-card border-border/50 font-bold">
+                        <td className="p-3">
+                          <p className="font-bold">{usr.name || "Anonymous"}</p>
+                          <p className="text-[10px] text-foreground/75 font-semibold">{usr.email}</p>
+                        </td>
+                        <td className="p-3">
+                          <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-bold uppercase", usr.consent ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500")}>
+                            {usr.consent ? "GRANTED" : "REVOKED"}
+                          </span>
+                        </td>
+                        <td className="p-3 font-bold">{usr.points}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </section>
       )}
 
       {/* Platform Features / Bento Grid Informational Section */}
-      <section className="container pb-16 border-t pt-16 border-border/40">
-        <div className="w-full max-w-5xl mx-auto">
-          
-          <div className="text-center mb-10">
-            <span className="text-xs text-indigo-500 font-medium uppercase tracking-widest">Advanced Infrastructure</span>
-            <h3 className="text-2xl font-medium text-foreground mt-2">GoSafe Key Modules</h3>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            {/* Card 1: Local AI Scoring Engine (col-span-2) */}
-            <div className="lg:col-span-2 p-8 rounded-3xl bg-card border border-border/50 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[220px] group hover:border-border transition-all">
-              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform">
-                <Brain className="w-24 h-24 text-foreground" />
-              </div>
-              <div className="relative z-10 max-w-lg">
-                <div className="flex items-center gap-2 mb-3">
-                  <Brain className="w-5 h-5 text-blue-500" />
-                  <h4 className="font-semibold text-base text-foreground">Local AI Scoring Engine</h4>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Calculates risk score indexes dynamically from category base weights, report confidence scales, and weather multipliers.
-                </p>
-              </div>
-              
-              {/* Micro-UI mockup for visual accent */}
-              <div className="mt-4 pt-4 border-t border-border/40 flex flex-wrap gap-4 items-center justify-between text-[10px] text-muted-foreground">
-                <div className="flex items-center gap-3">
-                  <span>Category Weight: <span className="font-medium text-foreground">10.0</span></span>
-                  <span>Confidence Index: <span className="font-medium text-foreground">94%</span></span>
-                  <span>Weather Multiplier: <span className="font-medium text-foreground">1.2x</span></span>
-                </div>
-                <div className="px-2 py-0.5 rounded bg-red-500/10 text-red-500 font-semibold uppercase">Risk Level: High</div>
-              </div>
-            </div>
-
-            {/* Card 2: Detour Routing Core (col-span-1) */}
-            <div className="lg:col-span-1 p-8 rounded-3xl bg-card border border-border/50 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[220px] group hover:border-border transition-all">
-              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform">
-                <Compass className="w-20 h-20 text-foreground" />
-              </div>
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-3">
-                  <Compass className="w-5 h-5 text-indigo-500" />
-                  <h4 className="font-semibold text-base text-foreground">Detour Routing Core</h4>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Queries the Goong direction API to redraw route guidelines around active high-danger zones to navigate users safely.
-                </p>
-              </div>
-              <div className="text-[10px] text-indigo-500 font-medium hover:underline cursor-pointer flex items-center gap-1 mt-4">
-                Explore Routing Core &rarr;
-              </div>
-            </div>
-
-            {/* Card 3: Gamified Credits Economy (col-span-1) */}
-            <div className="lg:col-span-1 p-8 rounded-3xl bg-card border border-border/50 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[220px] group hover:border-border transition-all">
-              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:scale-110 transition-transform">
-                <Award className="w-20 h-20 text-foreground" />
-              </div>
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-3">
-                  <Award className="w-5 h-5 text-emerald-500" />
-                  <h4 className="font-semibold text-base text-foreground">Gamified Credits Economy</h4>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Distributes safety credits for submitting reports (+10 pts), route feedback (+5 pts), and resolving overlays to redeem merchant vouchers.
-                </p>
-              </div>
-              <div className="text-[10px] text-emerald-500 font-medium hover:underline cursor-pointer flex items-center gap-1 mt-4">
-                Redeem Rewards &rarr;
-              </div>
-            </div>
-
-            {/* Card 4: Testimonial Quote & Smart City Map (col-span-2) */}
-            <div className="lg:col-span-2 rounded-3xl border border-border/50 shadow-sm relative overflow-hidden flex flex-col lg:flex-row min-h-[220px] bg-zinc-950 text-white">
-              {/* Background image half with overlay gradient */}
-              <div className="lg:w-1/2 relative h-48 lg:h-auto overflow-hidden">
-                <img 
-                  src="/smart_city_nav_glow.png" 
-                  alt="Smart City Navigation UI" 
-                  className="absolute inset-0 w-full h-full object-cover opacity-80"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-zinc-950" />
-              </div>
-              
-              {/* Quote half */}
-              <div className="lg:w-1/2 p-8 flex flex-col justify-center relative z-10">
-                <span className="text-[10px] uppercase text-blue-400 font-semibold tracking-wider mb-2">Commuter Feedback</span>
-                <blockquote className="text-xs italic text-zinc-300 leading-relaxed mb-4">
-                  "GoSafe has transformed my commute. Getting real-time hazard routing on flood days saves me time and keeps me safe."
-                </blockquote>
-                <cite className="text-[10px] not-italic font-medium text-white">
-                  — Minh Tuan, HCMUTE Commuter
-                </cite>
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-      </section>
+      <ModulesSection />
 
       {/* Floating Report Hazard Dialog */}
       {isReportOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-background border border-border shadow-2xl rounded-3xl w-full max-w-md p-6 flex flex-col gap-4 text-xs border-border/50">
             <div className="flex items-center justify-between">
-              <h3 className="font-medium text-sm flex items-center gap-1">
-                <AlertTriangle className="w-5 h-5 text-red-500 animate-pulse" /> Report Hazard
+              <h3 className="font-bold text-sm flex items-center gap-1">
+                <AlertTriangle className="w-5 h-5 text-red-500 animate-pulse" /> Report Road Hazard
               </h3>
               <Button variant="ghost" size="icon" onClick={() => setIsReportOpen(false)} className="h-8 w-8 rounded-full"><XCircle className="w-5 h-5" /></Button>
             </div>
 
             <form onSubmit={handleReportSubmit} className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
-                <span className="font-medium text-muted-foreground">Category</span>
-                <select value={reportCategory} onChange={(e) => setReportCategory(e.target.value)} className="p-3 border rounded-xl bg-background border-border/50">
+                <span className="font-bold text-foreground">Incident Category</span>
+                <select value={reportCategory} onChange={(e) => setReportCategory(e.target.value)} className="p-3 border rounded-xl bg-background font-semibold border-border/50">
                   <option value="FLOODING">🌊 Flooding &amp; Puddles</option>
-                  <option value="ACCIDENT">🚗 Accident blockage</option>
-                  <option value="DEBRIS">🌲 Road Debris</option>
-                  <option value="POTHOLES">🕳️ Potholes &amp; Cracks</option>
+                  <option value="ACCIDENT">🚗 Traffic Accident</option>
+                  <option value="DEBRIS">🌲 Road Obstacles &amp; Debris</option>
+                  <option value="POTHOLES">🕳️ Potholes &amp; Damage</option>
                 </select>
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="font-medium text-muted-foreground">Location Coords (Selected by Clicking Map)</span>
-                <div className="p-3 border rounded-xl bg-muted/30 font-mono text-[9px] text-muted-foreground border-border/50">
-                  Lat: {reportLocation.lat.toFixed(6)}, Lng: {reportLocation.lng.toFixed(6)}
+                <span className="font-bold text-foreground">Hazard Coordinates (Selected via map click)</span>
+                <div className="p-3 border rounded-xl bg-muted/30 font-mono text-[9px] text-foreground font-bold border-border/50">
+                  Latitude: {reportLocation.lat.toFixed(6)}, Longitude: {reportLocation.lng.toFixed(6)}
                 </div>
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="font-medium text-muted-foreground">Attachment (PII Scrubbed)</span>
+                <span className="font-bold text-foreground">Attached Image (PII Automatically Scrubbed)</span>
                 <div className="flex items-center gap-2">
                   <label className="flex-1 flex flex-col items-center justify-center p-2 border border-dashed rounded-xl cursor-pointer bg-muted/20 hover:bg-muted/30 border-border/50">
-                    {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4 text-muted-foreground" />}
-                    <span className="text-[9px] text-muted-foreground mt-1">Upload file</span>
+                    {uploading ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Upload className="w-4 h-4 text-foreground" />}
+                    <span className="text-[9px] text-foreground font-bold mt-1">Upload photo</span>
                     <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                   </label>
                   {reportImage && (
@@ -1441,11 +1207,11 @@ export default function HomePage() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="font-medium text-muted-foreground">Description</span>
-                <textarea value={reportDesc} onChange={(e) => setReportDesc(e.target.value)} placeholder="Detail lane blockages, obstacle sizes, approximate depth..." className="p-3 border rounded-xl bg-background resize-none h-16 border-border/50" />
+                <span className="font-bold text-foreground">Description &amp; Details</span>
+                <textarea value={reportDesc} onChange={(e) => setReportDesc(e.target.value)} placeholder="Detail lane blockages, obstacle sizes, approximate depth..." className="p-3 border rounded-xl bg-background resize-none h-16 font-semibold border-border/50" />
               </div>
 
-              <Button type="submit" className="w-full rounded-xl py-6 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs mt-1 border-0">Submit Report</Button>
+              <Button type="submit" className="w-full rounded-xl py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs mt-1 border-0">Submit Report</Button>
             </form>
           </div>
         </div>
@@ -1455,39 +1221,39 @@ export default function HomePage() {
       {isApproveModalOpen && activeApproveReport && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-background border border-border shadow-2xl rounded-3xl w-full max-w-md p-6 flex flex-col gap-3 text-xs border-border/50">
-            <h3 className="font-medium text-sm text-green-600 flex items-center gap-1.5"><Shield className="w-4 h-4" /> AI Report Verification</h3>
-            
+            <h3 className="font-bold text-sm text-green-600 flex items-center gap-1.5"><Shield className="w-4 h-4" /> AI Report Verification</h3>
+
             <div className="border-b pb-2 flex gap-2 border-border/50">
               {activeApproveReport.imageUrl && <img src={activeApproveReport.imageUrl} alt="attached" className="w-12 h-12 object-cover rounded-lg border border-border/50" />}
               <div>
-                <p className="font-medium capitalize">{activeApproveReport.category}</p>
-                <p className="text-muted-foreground text-[11px] leading-snug">{activeApproveReport.description}</p>
+                <p className="font-bold capitalize">{activeApproveReport.category === "FLOODING" ? "Flooding" : activeApproveReport.category === "ACCIDENT" ? "Accident" : activeApproveReport.category === "DEBRIS" ? "Road Debris" : "Pothole"}</p>
+                <p className="text-foreground text-[11px] leading-snug font-medium">{activeApproveReport.description}</p>
               </div>
             </div>
 
             <div>
-              <h4 className="font-medium text-[10px] text-muted-foreground uppercase mb-1.5">AI Analysis Output</h4>
+              <h4 className="font-bold text-[10px] text-foreground uppercase mb-1.5">AI Analysis Output</h4>
               {!approveAiResult ? (
-                <div className="flex items-center justify-center gap-1.5 py-4 text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin text-primary" /> Analysing report...</div>
+                <div className="flex items-center justify-center gap-1.5 py-4 text-foreground font-semibold"><Loader2 className="w-4 h-4 animate-spin text-primary" /> Analyzing report with AI...</div>
               ) : (
                 <div className="p-3 border rounded-xl bg-muted/40 flex flex-col gap-1 border-border/50">
-                  <div className="flex justify-between items-center font-medium">
+                  <div className="flex justify-between items-center font-bold">
                     <span>Risk: {approveAiResult.riskScore}%</span>
-                    <span className="uppercase text-[9px]">{approveAiResult.riskLevel} Risk</span>
+                    <span className="uppercase text-[9px]">Level: {approveAiResult.riskLevel === "HIGH" ? "HIGH" : approveAiResult.riskLevel === "MEDIUM" ? "MEDIUM" : "LOW"}</span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground leading-snug border-t pt-1 mt-1 border-border/50"><strong>Recommendation: </strong> {approveAiResult.recommendation}</p>
+                  <p className="text-[10px] text-foreground leading-snug border-t pt-1 mt-1 border-border/50 font-semibold"><strong>Recommendation: </strong> {approveAiResult.recommendation}</p>
                 </div>
               )}
             </div>
 
             <div className="flex flex-col gap-1">
-              <span className="font-semibold text-muted-foreground">Location Street Name</span>
-              <input type="text" value={approveLocationName} onChange={(e) => setApproveLocationName(e.target.value)} placeholder="e.g. Vo Van Ngan St" className="p-3 border rounded-xl bg-background border-border/50" />
+              <span className="font-bold text-foreground">Street Name / Location</span>
+              <input type="text" value={approveLocationName} onChange={(e) => setApproveLocationName(e.target.value)} placeholder="e.g., Vo Van Ngan Street" className="p-3 border rounded-xl bg-background font-bold border-border/50" />
             </div>
 
             <div className="flex justify-end gap-2 border-t pt-3 border-border/50">
-              <Button variant="outline" onClick={() => setIsApproveModalOpen(false)} className="h-8 rounded-xl text-[10px] font-medium border-border/50">Cancel</Button>
-              <Button disabled={!approveAiResult || !approveLocationName} onClick={handleApproveReportSubmit} className="h-8 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-medium text-[10px] border-0">Approve &amp; Map overlay (+10 pts)</Button>
+              <Button variant="outline" onClick={() => setIsApproveModalOpen(false)} className="h-8 rounded-xl text-[10px] font-bold border-border/50">Cancel</Button>
+              <Button disabled={!approveAiResult || !approveLocationName} onClick={handleApproveReportSubmit} className="h-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[10px] border-0">Approve &amp; Map Overlay (+10 pts)</Button>
             </div>
           </div>
         </div>

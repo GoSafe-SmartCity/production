@@ -127,7 +127,7 @@ export function Navbar() {
               ) : (
                 <Button
                   onClick={() => signIn("google")}
-                  className="rounded-full px-6 bg-blue-600 hover:bg-blue-700 text-white transition-all font-medium border-0"
+                  className="rounded-full px-6 bg-primary hover:bg-primary/90 text-primary-foreground transition-all font-bold border-0"
                 >
                   Sign in
                 </Button>
