@@ -300,7 +300,7 @@ export default function HomePage() {
         .setHTML(`
           <div class="flex items-center p-0.5 font-bold">
             <span class="font-extrabold text-sm sm:text-base md:text-lg text-neutral-900 dark:text-neutral-100 tracking-normal leading-relaxed font-inter">
-              Đoạn đường <span class="text-red-500 font-black">Marie Curie</span> sắp ngập trong <span class="text-yellow-600 dark:text-yellow-400 font-black font-semibold">10 phút</span> tới
+              <span class="text-red-500 font-black">Marie Curie</span> street is going to be <span class="text-red-500 font-black">flooded</span> in <span class="text-yellow-600 dark:text-yellow-400 font-black font-semibold">10 minutes</span>
             </span>
           </div>
         `)
@@ -1619,7 +1619,9 @@ export default function HomePage() {
                   <div key={c.id} className="p-4 border rounded-2xl bg-card flex justify-between items-center text-[10px] border-border/50">
                     <div className="flex flex-col gap-0.5">
                       <span className="font-bold text-foreground">{c.voucher.title}</span>
-                      <span className="font-mono text-[9px] text-primary uppercase font-bold">{c.voucher.code}</span>
+                      <span className="font-mono text-[9px] text-primary uppercase font-bold">
+                        {`GS-${c.id.substring(c.id.length - 8).toUpperCase()}`}
+                      </span>
                     </div>
                     <div className="flex flex-col items-end gap-1.5 font-semibold">
                       <span className="text-[9px] text-muted-foreground">{new Date(c.exchangedAt).toLocaleDateString()}</span>

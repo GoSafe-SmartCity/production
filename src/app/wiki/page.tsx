@@ -227,7 +227,7 @@ export default function WikiPage() {
         />
 
         <div className="container mx-auto relative z-10">
-          <div className="max-w-4xl text-left">
+          <div className="text-left w-full">
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 leading-tight">
               <AuroraText className="text-3xl sm:text-4xl font-bold tracking-tight inline-block mr-2">GoSafe</AuroraText> - Tài liệu OpenAPI &amp; Hub Nhà phát triển
             </h1>
@@ -264,7 +264,7 @@ export default function WikiPage() {
         </aside>
 
         {/* Content Section */}
-        <main className="flex-1 bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 text-xs leading-relaxed max-w-4xl">
+        <main className="flex-1 bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 text-xs leading-relaxed w-full">
           
           {/* OVERVIEW */}
           {activeSection === "overview" && (

@@ -65,8 +65,8 @@ export function FloodMapPage() {
     const [showDecision, setShowDecision] = useState(true);
 
     // Advanced timeline filters
-    const [selectedDate, setSelectedDate] = useState("2026-06-23");
-    const [selectedHour, setSelectedHour] = useState(14);
+    const [selectedDate, setSelectedDate] = useState("2026-06-27");
+    const [selectedHour, setSelectedHour] = useState(23);
     const [searchKeyword, setSearchKeyword] = useState("");
     const [filterCategory, setFilterCategory] = useState("ALL");
     const [filterRiskLevel, setFilterRiskLevel] = useState("ALL");
@@ -87,6 +87,7 @@ export function FloodMapPage() {
     const [selectedDecisionDetail, setSelectedDecisionDetail] = useState<any | null>(null);
     const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
     const [selectedWeatherDetail, setSelectedWeatherDetail] = useState<any | null>(null);
+    const [selectedReportDetail, setSelectedReportDetail] = useState<any | null>(null);
     
     const [isCrudModalOpen, setIsCrudModalOpen] = useState(false);
     const [activeIncident, setActiveIncident] = useState<any | null>(null);
@@ -543,7 +544,8 @@ export function FloodMapPage() {
                             metaCallbacks={{
                                 onReject: handleRejectReport,
                                 onApprove: handleVerifyReport,
-                                onClear: handleClearIncident
+                                onClear: handleClearIncident,
+                                onViewDetail: (report) => setSelectedReportDetail(report)
                             }}
                         />
                     ) : (
@@ -628,6 +630,82 @@ export function FloodMapPage() {
 
                         <div className="flex justify-end border-t pt-4 border-slate-100">
                             <Button onClick={() => setSelectedWeatherDetail(null)} className="h-9.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-5 border-0">Close Telemetry</Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Report Detail Modal */}
+            {selectedReportDetail && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in text-xs font-semibold text-slate-900">
+                    <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-md p-6 flex flex-col gap-4 shadow-2xl relative">
+                        <div className="flex items-center justify-between border-b pb-3 border-slate-100">
+                            <h3 className="font-bold text-sm flex items-center gap-1.5 text-primary">
+                                <Users className="w-5 h-5 text-primary" /> Citizen Feedback Details
+                            </h3>
+                            <button onClick={() => setSelectedReportDetail(null)} className="h-6 w-6 rounded-full border-0 bg-transparent text-slate-450 hover:text-slate-650 cursor-pointer flex items-center justify-center">
+                                <XCircle className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                            <div className="flex flex-col gap-2 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 font-semibold text-slate-900">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase leading-none">Feedback Information</span>
+                                <div className="h-px bg-slate-200 my-1" />
+                                <div className="flex justify-between py-1 border-b border-slate-250/30">
+                                    <span className="text-slate-500 font-medium">Incident Type:</span>
+                                    <span className="font-bold uppercase text-slate-800">{selectedReportDetail.category}</span>
+                                </div>
+                                <div className="flex justify-between py-1 border-b border-slate-250/30">
+                                    <span className="text-slate-500 font-medium">Reporter:</span>
+                                    <span className="text-slate-850 font-bold">{selectedReportDetail.reporter?.name || "Anonymous"}</span>
+                                </div>
+                                <div className="flex justify-between py-1 border-b border-slate-250/30">
+                                    <span className="text-slate-500 font-medium">Email:</span>
+                                    <span className="text-slate-600">{selectedReportDetail.reporter?.email || "N/A"}</span>
+                                </div>
+                                <div className="flex justify-between py-1 border-b border-slate-250/30">
+                                    <span className="text-slate-500 font-medium">Coordinates:</span>
+                                    <span className="text-slate-700">{selectedReportDetail.latitude.toFixed(5)}, {selectedReportDetail.longitude.toFixed(5)}</span>
+                                </div>
+                                <div className="flex justify-between py-1 border-b border-slate-250/30">
+                                    <span className="text-slate-500 font-medium">Status:</span>
+                                    <span className={cn(
+                                        "px-2 py-0.5 rounded text-[8px] font-bold uppercase",
+                                        selectedReportDetail.status === "APPROVED" ? "bg-green-50 text-green-700 border border-green-200" :
+                                        selectedReportDetail.status === "PENDING" ? "bg-orange-50 text-orange-700 border border-orange-200" :
+                                        "bg-red-50 text-red-700 border border-red-200"
+                                    )}>
+                                        {selectedReportDetail.status}
+                                    </span>
+                                </div>
+                                <div className="flex flex-col gap-1 py-1">
+                                    <span className="text-slate-500 font-medium">Description:</span>
+                                    <p className="text-slate-700 font-normal leading-relaxed">{selectedReportDetail.description}</p>
+                                </div>
+                            </div>
+
+                            {selectedReportDetail.imageUrl && (
+                                <div className="flex flex-col gap-1.5">
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase">Evidence Photo (Crawled Google Image)</span>
+                                    <div className="rounded-2xl overflow-hidden border border-slate-200 h-48 bg-slate-100 flex items-center justify-center relative shadow-inner">
+                                        <img 
+                                            src={selectedReportDetail.imageUrl} 
+                                            alt="Evidence Photo" 
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1547683905-f686c993aae5?auto=format&fit=crop&w=600&q=80";
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex justify-end border-t pt-4 border-slate-100">
+                            <Button onClick={() => setSelectedReportDetail(null)} className="h-9.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-5 border-0 cursor-pointer">
+                                Close Details
+                            </Button>
                         </div>
                     </div>
                 </div>

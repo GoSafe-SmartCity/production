@@ -29,6 +29,8 @@ declare module '@tanstack/react-table' {
         onDeleteVoucher?: (id: string) => void;
         onRoleUpdate?: () => void;
         onViewCameraDetection?: (detection: any) => void;
+        onMarkAsUsed?: (id: string) => void;
+        onViewDetail?: (report: any) => void;
     }
 }
 
@@ -48,6 +50,8 @@ interface DataTableProps<TData> {
         onDeleteVoucher?: (id: string) => void;
         onRoleUpdate?: () => void;
         onViewCameraDetection?: (detection: any) => void;
+        onMarkAsUsed?: (id: string) => void;
+        onViewDetail?: (report: any) => void;
     };
     pageSize?: number;
 }

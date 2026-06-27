@@ -40,42 +40,45 @@ export function OverviewDashboard() {
     const totalReports = pendingCount + approvedCount;
 
     return (
-        <div className="flex flex-col gap-6 px-8 py-8 w-full">
-            <div>
-                <h1 className="text-3xl font-black text-slate-900">Analytics &amp; Cities Status</h1>
+        <div className="flex flex-col w-full">
+            {/* Header */}
+            <div className="px-8 pt-8 pb-4">
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Analytics &amp; Cities Status</h1>
                 <p className="text-sm text-slate-500 mt-1">Real-time stats of citizen reports, flood telemetry, and community rewards voucher claims.</p>
             </div>
 
-            <div className="w-full h-px bg-slate-200 my-2" />
+            <div className="w-full h-px bg-slate-200" />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
-                <StatCard 
-                    title="Total Safety Wallet" 
-                    value="1,240 pts" 
-                    description="+180 pts earned this week by citizens" 
-                    icon={<TrendingUp className="w-6 h-6" />} 
-                />
-                <StatCard 
-                    title="Citizen Reports" 
-                    value={isLoading ? "..." : String(totalReports)} 
-                    description="Total reports logged in database" 
-                    icon={<Users className="w-6 h-6" />} 
-                />
-                <StatCard 
-                    title="Max Flood Depth" 
-                    value="48.0 cm" 
-                    description="Peak flood depth recorded on CAM_01" 
-                    icon={<ShieldAlert className="w-6 h-6 text-red-650" />} 
-                />
-                <StatCard 
-                    title="Vouchers Issued" 
-                    value="38 claimed" 
-                    description="Rewards exchanged during flooding" 
-                    icon={<Award className="w-6 h-6" />} 
-                />
+            <div className="flex flex-col gap-6 px-8 py-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <StatCard 
+                        title="Total Safety Wallet" 
+                        value="1,240 pts" 
+                        description="+180 pts earned this week by citizens" 
+                        icon={<TrendingUp className="w-6 h-6" />} 
+                    />
+                    <StatCard 
+                        title="Citizen Reports" 
+                        value={isLoading ? "..." : String(totalReports)} 
+                        description="Total reports logged in database" 
+                        icon={<Users className="w-6 h-6" />} 
+                    />
+                    <StatCard 
+                        title="Max Flood Depth" 
+                        value="48.0 cm" 
+                        description="Peak flood depth recorded on CAM_01" 
+                        icon={<ShieldAlert className="w-6 h-6 text-red-650" />} 
+                    />
+                    <StatCard 
+                        title="Vouchers Issued" 
+                        value="38 claimed" 
+                        description="Rewards exchanged during flooding" 
+                        icon={<Award className="w-6 h-6" />} 
+                    />
+                </div>
+
+                <OverviewCharts />
             </div>
-
-            <OverviewCharts />
         </div>
     );
 }

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { crawlGoogleImage } from "@/lib/image-crawler";
+
 
 // GET: Query incidents with advanced filters
 export async function GET(req: NextRequest) {
@@ -106,12 +108,21 @@ export async function POST(req: NextRequest) {
     // Standard PII privacy scrubbing simulation
     const finalDescription = `${description} [Privacy-checked: camera blurred metadata]`;
 
+    let finalImageUrl = imageUrl || null;
+    if (!finalImageUrl) {
+      try {
+        finalImageUrl = await crawlGoogleImage(category);
+      } catch (err) {
+        console.warn("Failed to crawl Google image for incident API:", err);
+      }
+    }
+
     const report = await prisma.incidentReport.create({
       data: {
         reporterId: session?.user?.id || null,
         type: reportType,
         category,
-        imageUrl: imageUrl || null,
+        imageUrl: finalImageUrl,
         latitude: lat,
         longitude: lng,
         description: finalDescription,

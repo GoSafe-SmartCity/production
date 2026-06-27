@@ -37,10 +37,11 @@ export function CameraPage() {
     };
 
     return (
-        <div className="flex flex-col gap-6 px-8 py-8 w-full">
-            <div className="flex items-center justify-between">
+        <div className="flex flex-col w-full">
+            {/* Header */}
+            <div className="px-8 pt-8 pb-4 flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 font-inter">Camera Control Center</h1>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tight">Camera Control Center</h1>
                     <p className="text-sm text-slate-500 mt-1">Connect new hardware stations or manage active AI segmentation feeds.</p>
                 </div>
                 <Button 
@@ -53,25 +54,27 @@ export function CameraPage() {
 
             <div className="w-full h-px bg-slate-200" />
 
-            {/* Connect Camera Form */}
-            {isConnectFormOpen && (
-                <RegisterCameraForm 
-                    onRegister={handleRegisterNewCamera}
-                    onClose={() => setIsConnectFormOpen(false)}
-                />
-            )}
+            <div className="flex flex-col gap-6 px-8 py-6">
+                {/* Connect Camera Form */}
+                {isConnectFormOpen && (
+                    <RegisterCameraForm 
+                        onRegister={handleRegisterNewCamera}
+                        onClose={() => setIsConnectFormOpen(false)}
+                    />
+                )}
 
-            {/* Camera Streams Grid */}
-            {isLoading && cameraStations.length === 0 ? (
-                <div className="text-center py-20 text-xs font-semibold text-slate-500 flex items-center justify-center gap-2">
-                    <RefreshCw className="w-4 h-4 animate-spin text-primary" /> Loading camera streams...
-                </div>
-            ) : (
-                <CameraStreamsGrid 
-                    cameraStations={cameraStations}
-                    onViewLiveFeed={() => {}}
-                />
-            )}
+                {/* Camera Streams Grid */}
+                {isLoading && cameraStations.length === 0 ? (
+                    <div className="text-center py-20 text-xs font-semibold text-slate-500 flex items-center justify-center gap-2">
+                        <RefreshCw className="w-4 h-4 animate-spin text-primary" /> Loading camera streams...
+                    </div>
+                ) : (
+                    <CameraStreamsGrid 
+                        cameraStations={cameraStations}
+                        onViewLiveFeed={() => {}}
+                    />
+                )}
+            </div>
         </div>
     );
 }

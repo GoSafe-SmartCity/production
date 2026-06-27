@@ -95,3 +95,32 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+// PUT: Update exchange status (Admin only, e.g. mark as USED)
+export async function PUT(req: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session || session.user?.role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized. Admin required" }, { status: 403 });
+    }
+
+    const { exchangeId, status } = await req.json();
+    if (!exchangeId || !status) {
+      return NextResponse.json({ error: "Missing exchangeId or status" }, { status: 400 });
+    }
+
+    const updated = await prisma.voucherExchange.update({
+      where: { id: exchangeId },
+      data: { status },
+      include: {
+        voucher: true,
+        user: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    return NextResponse.json({ success: true, exchange: updated });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
