@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, User } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { AnimatePresence, motion, useAnimation } from "framer-motion";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -35,10 +35,13 @@ export function Navbar() {
     };
 
     window.addEventListener("scroll", handleScroll);
-    setIsInitialLoad(false);
+    const initialLoadFrame = window.requestAnimationFrame(() => {
+      setIsInitialLoad(false);
+    });
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
+      window.cancelAnimationFrame(initialLoadFrame);
     };
   }, []);
 
@@ -64,7 +67,9 @@ export function Navbar() {
             delay: isInitialLoad ? 0.1 : 0,
             ease: "easeOut",
           }}
-          className={cn("fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md")}
+          className={cn(
+            "fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md",
+          )}
         >
           <div className="container flex h-16 items-center justify-between">
             <Link href="/" className="flex items-center group">
@@ -76,7 +81,7 @@ export function Navbar() {
                 className="object-contain"
               />
             </Link>
-            
+
             {/* Right side - Auth */}
             <div className="flex items-center gap-4">
               {status === "loading" ? (
@@ -99,7 +104,11 @@ export function Navbar() {
                       </Avatar>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 rounded-3xl p-2">
+
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-56 rounded-3xl p-2"
+                  >
                     <div className="flex items-center gap-2 p-2">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={session.user.image || ""} />
@@ -108,7 +117,9 @@ export function Navbar() {
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium">{session.user.name}</span>
+                        <span className="text-sm font-medium">
+                          {session.user.name}
+                        </span>
                         <span className="text-xs text-muted-foreground truncate max-w-[150px]">
                           {session.user.email}
                         </span>
@@ -122,6 +133,16 @@ export function Navbar() {
                       <LogOut className="mr-2 group-hover:text-white h-4 w-4" />
                       Sign out
                     </DropdownMenuItem>
+                    {session.user.role !== "ADMIN" ? (
+                      <DropdownMenuItem asChild>
+                        <Link
+                          href="/admin"
+                          className="cursor-pointer rounded-xl"
+                        >
+                          Switch to admin
+                        </Link>
+                      </DropdownMenuItem>
+                    ) : null}
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (
