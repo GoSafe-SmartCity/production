@@ -3,7 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 // Strip quotes if present (Docker may pass them as part of the value)
-const rawUrl = process.env.NEXTAUTH_URL || "https://link.hcmute.edu.vn";
+const rawUrl = process.env.NEXTAUTH_URL || "https://gosafe-smartcity.vercel.app/";
 const siteUrl = rawUrl.replace(/^["']|["']$/g, "");
 
 export const viewport: Viewport = {

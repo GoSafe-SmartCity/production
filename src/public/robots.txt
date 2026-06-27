@@ -1,5 +1,5 @@
-# HCMUTE S-Link & QR Code
-# https://link.hcmute.edu.vn
+# GoSafe - Smart Urban City Solution
+# https://gosafe-smartcity.vercel.app/
 
 User-agent: *
 Allow: /
@@ -7,7 +7,7 @@ Disallow: /api/
 Disallow: /auth/
 
 # Sitemap
-Sitemap: https://link.hcmute.edu.vn/sitemap.xml
+Sitemap: https://gosafe-smartcity.vercel.app/sitemap.xml
 
 # Crawl-delay (optional)
 Crawl-delay: 1
