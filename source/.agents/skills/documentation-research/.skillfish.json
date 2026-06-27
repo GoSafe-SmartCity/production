@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "documentation-research",
+  "owner": "803",
+  "repo": "sensei",
+  "path": "packages/sensei-claude-code/skills/documentation-research",
+  "branch": "main",
+  "sha": "f4a93da0667ccecc110aa9bbd5113143fb877896",
+  "source": "manual"
+}
