@@ -1,5 +1,6 @@
 import NextAuth, { AuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 
@@ -7,8 +8,32 @@ export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID || "mock_google_id",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "mock_google_secret",
+    }),
+    CredentialsProvider({
+      name: "Development Login",
+      credentials: {
+        email: { label: "Email", type: "text", placeholder: "commuter@gmail.com" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email) return null;
+        let user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
+        if (!user) {
+          user = await prisma.user.create({
+            data: {
+              email: credentials.email,
+              name: credentials.email.split("@")[0].toUpperCase(),
+              role: credentials.email.includes("admin") ? "ADMIN" : "USER",
+              points: 500,
+              consent: true,
+            },
+          });
+        }
+        return user;
+      },
     }),
   ],
   session: {

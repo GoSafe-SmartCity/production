@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Shield } from "lucide-react";
 import { AnimatePresence, motion, useAnimation } from "framer-motion";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -82,48 +82,62 @@ export function Navbar() {
               {status === "loading" ? (
                 <div className="w-10 h-10 rounded-full bg-muted animate-pulse" />
               ) : session?.user ? (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
+                <div className="flex items-center gap-3">
+                  {session.user.role === "ADMIN" && (
                     <Button
-                      variant="ghost"
-                      className="relative h-10 w-10 rounded-full ring-2 ring-primary/20 hover:ring-primary/40 transition-all"
+                      variant="outline"
+                      className="rounded-full px-4 py-2 border-primary/20 text-primary hover:bg-primary/5 hover:text-primary transition-all flex items-center gap-2 font-bold h-9 text-xs"
+                      asChild
                     >
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage
-                          src={session.user.image || ""}
-                          alt={session.user.name || "User"}
-                        />
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          {session.user.name?.charAt(0).toUpperCase() || "U"}
-                        </AvatarFallback>
-                      </Avatar>
+                      <Link href="/manage">
+                        <Shield className="w-4 h-4" />
+                        <span>Quản lý</span>
+                      </Link>
                     </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56 rounded-3xl p-2">
-                    <div className="flex items-center gap-2 p-2">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={session.user.image || ""} />
-                        <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                          {session.user.name?.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{session.user.name}</span>
-                        <span className="text-xs text-muted-foreground truncate max-w-[150px]">
-                          {session.user.email}
-                        </span>
+                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="relative h-10 w-10 rounded-full ring-2 ring-primary/20 hover:ring-primary/40 transition-all"
+                      >
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage
+                            src={session.user.image || ""}
+                            alt={session.user.name || "User"}
+                          />
+                          <AvatarFallback className="bg-primary text-primary-foreground">
+                            {session.user.name?.charAt(0).toUpperCase() || "U"}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56 rounded-3xl p-2">
+                      <div className="flex items-center gap-2 p-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={session.user.image || ""} />
+                          <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                            {session.user.name?.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{session.user.name}</span>
+                          <span className="text-xs text-muted-foreground truncate max-w-[150px]">
+                            {session.user.email}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => signOut()}
-                      className="cursor-pointer group hover:!bg-destructive text-destructive focus:!text-white rounded-xl"
-                    >
-                      <LogOut className="mr-2 group-hover:text-white h-4 w-4" />
-                      Sign out
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => signOut()}
+                        className="cursor-pointer group hover:!bg-destructive text-destructive focus:!text-white rounded-xl"
+                      >
+                        <LogOut className="mr-2 group-hover:text-white h-4 w-4" />
+                        Sign out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               ) : (
                 <Button
                   onClick={() => signIn("google")}

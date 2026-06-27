@@ -188,3 +188,29 @@ model NotificationSubscription {
   auth      String
   createdAt DateTime @default(now())
 }
+
+model CameraStation {
+  id        String   @id
+  name      String
+  latitude  Float
+  longitude Float
+  status    String   @default("ONLINE") // "ONLINE" | "OFFLINE"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  detections CameraDetection[]
+}
+
+model CameraDetection {
+  id             String        @id @default(cuid())
+  stationId      String
+  station        CameraStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  timestamp      DateTime      @default(now())
+  waterDepthCm   Float
+  vehiclesCount  Int
+  severity       String        // "LOW" | "MEDIUM" | "HIGH"
+  rawFramePath   String        // e.g. "/detections/raw_day_X.jpg"
+  segmentPath    String        // e.g. "/detections/segment_day_X.jpg"
+  floodedAreaPct Float
+  createdAt      DateTime      @default(now())
+}

@@ -14,6 +14,7 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { ModulesSection } from "@/components/modules-section";
 import { GridPattern } from "@/components/ui/grid-pattern";
+import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern";
 import { DotPattern } from "@/components/ui/dot-pattern";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,6 +22,22 @@ import { cn } from "@/lib/utils";
 import { AuroraText } from "@/components/ui/aurora-text";
 
 const ease = [0.16, 1, 0.3, 1] as [number, number, number, number];
+
+if (typeof window !== "undefined") {
+  const originalConsoleError = console.error;
+  console.error = (...args: any[]) => {
+    const msg = args.join(" ");
+    if (
+      msg.includes('trees') || 
+      msg.includes('poi-tree') || 
+      msg.includes('café') || 
+      msg.includes('map.addImage')
+    ) {
+      return;
+    }
+    originalConsoleError.apply(console, args);
+  };
+}
 
 export default function HomePage() {
   const { data: session, status } = useSession();
@@ -43,42 +60,26 @@ export default function HomePage() {
   const [weather, setWeather] = useState<any>(null);
 
   // Bottom Tab State
-  const [activeTab, setActiveTab] = useState<"home" | "redeem" | "profile">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "navigation" | "redeem" | "profile">("home");
 
-  // Geolocation & Flooded Street States (Hardcoded to Developer Location in Mỹ Tho)
-  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number }>({ lat: 10.35746, lng: 106.36135 });
+  // Geolocation & Flooded Street States (Focused on Đại học Quốc tế VNU-HCM in Thủ Đức)
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number }>({ lat: 10.8782, lng: 106.8008 });
 
-  // Fallback: decoded points of Hùng Vương Street to Trần Hưng Đạo route in Mỹ Tho
+  // Fallback: decoded points of blocked Vo Truong Toan road
   const [floodedStreetCoords, setFloodedStreetCoords] = useState<[number, number][]>([
-    [106.36442, 10.36209],
-    [106.36437, 10.36124],
-    [106.36198, 10.36168],
-    [106.35813, 10.36437],
-    [106.35729, 10.35833],
-    [106.35783, 10.35792]
+    [106.8020, 10.8795],
+    [106.8015, 10.8790],
+    [106.8010, 10.8785],
+    [106.8005, 10.8778]
   ]);
 
-  // Fallback: decoded alternative route coordinates in Mỹ Tho
+  // Fallback: decoded alternative VNU campus detour path
   const [alternativeStreetCoords, setAlternativeStreetCoords] = useState<[number, number][]>([
-    [106.36442, 10.36209],
-    [106.36437, 10.36124],
-    [106.3643, 10.36007],
-    [106.36421, 10.35848],
-    [106.36419, 10.35812],
-    [106.36414, 10.35727],
-    [106.36407, 10.35607],
-    [106.36397, 10.35462],
-    [106.36396, 10.35435],
-    [106.36211, 10.35445],
-    [106.36139, 10.35449],
-    [106.36078, 10.35454],
-    [106.35978, 10.35514],
-    [106.35923, 10.35556],
-    [106.35878, 10.3559],
-    [106.35818, 10.35636],
-    [106.35792, 10.35656],
-    [106.35799, 10.35745],
-    [106.35783, 10.35792]
+    [106.8020, 10.8795],
+    [106.8030, 10.8788],
+    [106.8025, 10.8775],
+    [106.8010, 10.8768],
+    [106.8005, 10.8778]
   ]);
 
   // Decode Goong polyline helper
@@ -117,7 +118,7 @@ export default function HomePage() {
     const fetchRealStreetPath = async () => {
       try {
         const apiKey = process.env.NEXT_PUBLIC_GOONG_API_KEY || "2X3t5rZDLQiFHgLAdeGC8tkz2RZdTwfwMDtyFYSm";
-        const res = await fetch(`https://rsapi.goong.io/direction?origin=10.3621,106.3642&destination=10.3579,106.3578&vehicle=bike&alternatives=true&api_key=${apiKey}`);
+        const res = await fetch(`https://rsapi.goong.io/direction?origin=10.8795,106.8020&destination=10.8778,106.8005&vehicle=bike&alternatives=true&api_key=${apiKey}`);
         if (res.ok) {
           const data = await res.json();
           // Primary Route (Flooded)
@@ -297,10 +298,9 @@ export default function HomePage() {
       })
         .setLngLat(midCoord)
         .setHTML(`
-          <div class="flex items-center gap-3">
-            <span class="text-lg sm:text-xl md:text-2xl">⚠️</span>
-            <span class="font-extrabold text-sm sm:text-base md:text-lg text-neutral-900 dark:text-neutral-100 tracking-normal leading-relaxed">
-              Đoạn đường <span class="text-[#00a850] dark:text-[#05c46b] font-black">Võ Thị Sáu</span> sắp ngập trong <span class="text-yellow-600 dark:text-yellow-400 font-black">10 phút</span> tới
+          <div class="flex items-center p-0.5 font-bold">
+            <span class="font-extrabold text-sm sm:text-base md:text-lg text-neutral-900 dark:text-neutral-100 tracking-normal leading-relaxed font-inter">
+              Đoạn đường <span class="text-red-500 font-black">Marie Curie</span> sắp ngập trong <span class="text-yellow-600 dark:text-yellow-400 font-black font-semibold">10 phút</span> tới
             </span>
           </div>
         `)
@@ -712,7 +712,17 @@ export default function HomePage() {
     }
   }, [mapLoaded, map, mapHero]);
 
-  // Render Markers on Map
+  // Map resize handler on activeTab changes
+  useEffect(() => {
+    if (activeTab === "home" && map) {
+      const timer = setTimeout(() => {
+        map.resize();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, map]);
+
+  // Render Markers on Map - Only show navigation start/end when active
   const renderMarkers = useCallback(() => {
     if (!map) return;
     // @ts-ignore
@@ -724,55 +734,37 @@ export default function HomePage() {
     heroMarkersRef.current.forEach(m => m.remove());
     heroMarkersRef.current = [];
 
-    incidents.forEach((inc: any) => {
-      if (inc.status !== "ACTIVE") return;
-
-      let markerColor = "#3b82f6";
-      if (inc.riskLevel === "HIGH") markerColor = "#ef4444";
-      else if (inc.riskLevel === "MEDIUM") markerColor = "#f97316";
-
-      const el = document.createElement("div");
-      el.className = "cursor-pointer group flex items-center justify-center p-2 rounded-full border bg-background shadow-lg transition-transform hover:scale-105";
-      el.style.borderColor = markerColor;
-      el.innerHTML = `
-        <div class="w-6 h-6 rounded-full flex items-center justify-center" style="background-color: ${markerColor}20; color: ${markerColor}">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    // Only show start (bike) and destination markers when navigating
+    if (isNavigating && navPoints.length >= 2) {
+      // Start marker (bike icon - blue dot)
+      const startEl = document.createElement("div");
+      startEl.innerHTML = `
+        <div style="width:32px;height:32px;border-radius:50%;border:2.5px solid #3b82f6;background:white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(59,130,246,0.3), 0 0 0 4px rgba(59,130,246,0.15);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5V14l-3-3 4-3 2 3h2"/></svg>
         </div>
       `;
-
-      el.addEventListener("click", () => {
-        setSelectedIncident(inc);
-      });
-
-      const marker = new goongjs.Marker(el)
-        .setLngLat([inc.longitude, inc.latitude])
+      const startMarker = new goongjs.Marker(startEl)
+        .setLngLat([navPoints[0].lng, navPoints[0].lat])
         .addTo(map);
+      markersRef.current.push(startMarker);
 
-      markersRef.current.push(marker);
-
-      if (mapHero) {
-        const elHero = document.createElement("div");
-        elHero.className = "flex items-center justify-center p-1 rounded-full border bg-background shadow-md";
-        elHero.style.borderColor = markerColor;
-        elHero.innerHTML = `
-          <div class="w-3.5 h-3.5 rounded-full flex items-center justify-center" style="background-color: ${markerColor}20; color: ${markerColor}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          </div>
-        `;
-        const markerHero = new goongjs.Marker(elHero)
-          .setLngLat([inc.longitude, inc.latitude])
-          .addTo(mapHero);
-
-        heroMarkersRef.current.push(markerHero);
-      }
-    });
-  }, [map, mapHero, incidents]);
+      // Destination marker (red pin dot)
+      const endEl = document.createElement("div");
+      endEl.innerHTML = `
+        <div style="width:32px;height:32px;border-radius:50%;border:2.5px solid #ef4444;background:white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(239,68,68,0.3), 0 0 0 4px rgba(239,68,68,0.15);">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        </div>
+      `;
+      const endMarker = new goongjs.Marker(endEl)
+        .setLngLat([navPoints[navPoints.length - 1].lng, navPoints[navPoints.length - 1].lat])
+        .addTo(map);
+      markersRef.current.push(endMarker);
+    }
+  }, [map, mapHero, isNavigating, navPoints]);
 
   useEffect(() => {
-    if (map && incidents.length > 0) {
-      renderMarkers();
-    }
-  }, [map, mapHero, incidents, renderMarkers]);
+    renderMarkers();
+  }, [map, mapHero, isNavigating, navPoints, renderMarkers]);
 
   // Image upload handler
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1195,90 +1187,89 @@ export default function HomePage() {
       <Navbar />
 
       {/* Hero Section - Split Screen layout */}
-      <section className="relative z-10 min-h-[calc(100vh-4rem)] flex flex-col lg:flex-row items-stretch w-full overflow-hidden border-b border-border/40">
+      {activeTab === "home" && (
+        <section className="relative z-10 min-h-[calc(100vh-4rem)] flex flex-col lg:flex-row items-stretch w-full overflow-hidden border-b border-border/40">
 
-        {/* Left Column: Heading and description */}
-        <motion.div
-          initial={{ opacity: 0, x: -30 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, ease }}
-          className="w-full lg:w-1/2 flex flex-col justify-center relative pt-28 pb-16 lg:py-16 px-6 sm:px-12 lg:pl-[calc((100vw-min(100vw,1400px))/2+2rem)] lg:pr-16 z-10"
-        >
-          {/* Grid Pattern Background visible behind left column text */}
-          <GridPattern
-            squares={[
-              [4, 4],
-              [5, 1],
-              [8, 2],
-              [5, 3],
-              [5, 5],
-              [10, 10],
-              [12, 15],
-              [15, 10],
-              [10, 15],
-              [15, 10],
-              [10, 15],
-              [15, 10],
-            ]}
-            className={cn(
-              "[mask-image:radial-gradient(400px_circle_at_center,white,transparent)]",
-              "inset-x-0 inset-y-[-30%] h-[200%] skew-y-12",
-              "absolute inset-0 z-[-1] opacity-70 stroke-gray-300 dark:stroke-zinc-800 fill-blue-500/5 dark:fill-blue-500/10"
-            )}
-          />
-
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight leading-tight mb-6 text-foreground">
-            <AuroraText className="text-5xl sm:text-6xl lg:text-7xl font-normal tracking-tight inline-block mb-1">GoSafe</AuroraText> <br /> Fast, Smart & Safe
-          </h1>
-
-          <p className="text-base sm:text-lg lg:text-xl font-medium text-foreground leading-relaxed mb-8 max-w-lg">
-            Built for the community, driving sustainable cities.
-          </p>
-
-          {/* Action Area inside Hero */}
-          <div className="max-w-md w-full">
-            {!session ? (
-              <div className="flex flex-col gap-3 items-start justify-center">
-                <Button
-                  onClick={() => signIn("google")}
-                  className="rounded-full px-6 py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium flex items-center gap-2 border-0 shadow transition-all"
-                >
-                  <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05" />
-                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335" />
-                  </svg>
-                  Authenticate with Google
-                </Button>
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center gap-3">
-                <Button onClick={scrollToMap} className="rounded-full px-6 py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium flex items-center gap-2 border-0 shadow transition-all">
-                  <Map className="w-4 h-4" /> Go to Live Map
-                </Button>
-              </div>
-            )}
+          {/* Grid Pattern Background visible behind both columns */}
+          <div 
+            className="absolute inset-0 z-0 overflow-hidden"
+            style={{
+              maskImage: "radial-gradient(800px circle at bottom left, white, transparent)",
+              WebkitMaskImage: "radial-gradient(800px circle at bottom left, white, transparent)"
+            }}
+          >
+            <AnimatedGridPattern
+              numSquares={70}
+              maxOpacity={0.3}
+              duration={1.5}
+              repeatDelay={0.1}
+              className={cn(
+                "inset-x-0 inset-y-[-30%] h-[200%] skew-y-12",
+                "absolute inset-0 opacity-70 stroke-gray-300 dark:stroke-zinc-800 fill-blue-500/5 dark:fill-blue-500/10"
+              )}
+            />
           </div>
-        </motion.div>
 
-        {/* Right Column: Premium Banner Image */}
-        <motion.div
-          initial={{ opacity: 0, x: 50 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, ease, delay: 0.15 }}
-          className="w-full lg:w-1/2 lg:absolute lg:right-0 lg:top-0 lg:bottom-0 relative h-[380px] lg:h-auto overflow-hidden bg-transparent"
-        >
-          {/* Glowing background radial */}
-          <div className="absolute inset-0 z-10 rounded-full filter blur-3xl" />
+          {/* Left Column: Heading and description */}
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, ease }}
+            className="w-full lg:w-1/2 flex flex-col justify-center relative pt-52 sm:pt-60 lg:pt-16 pb-16 lg:py-16 px-6 sm:px-12 lg:pl-[calc((100vw-min(100vw,1400px))/2+2rem)] lg:pr-16 z-10"
+          >
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight leading-tight mb-6 text-foreground">
+              <AuroraText className="text-5xl sm:text-6xl lg:text-7xl font-normal tracking-tight inline-block mb-1">GoSafe</AuroraText> <br /> Fast, Smart & Safe
+            </h1>
 
-          <img
-            src="/assets/banner.png"
-            alt="GoSafe City Map Overview"
-            className="absolute inset-0 w-full h-full object-cover object-left-top select-none"
-          />
-        </motion.div>
-      </section>
+            <p className="text-base sm:text-lg lg:text-xl font-medium text-foreground leading-relaxed mb-8 max-w-lg">
+              Built for the community, driving sustainable cities.
+            </p>
+
+            {/* Action Area inside Hero */}
+            <div className="max-w-md w-full">
+              {!session ? (
+                <div className="flex flex-col gap-3 items-start justify-center">
+                  <Button
+                    onClick={() => signIn("google")}
+                    className="rounded-full px-6 py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium flex items-center gap-2 border-0 shadow transition-all"
+                  >
+                    <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05" />
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335" />
+                    </svg>
+                    Authenticate with Google
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button onClick={scrollToMap} className="rounded-full px-6 py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium flex items-center gap-2 border-0 shadow transition-all">
+                    <Map className="w-4 h-4" /> Go to Live Map
+                  </Button>
+                </div>
+              )}
+            </div>
+          </motion.div>
+
+          {/* Right Column: Premium Banner Image */}
+          <motion.div
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, ease, delay: 0.15 }}
+            className="w-full lg:w-1/2 lg:absolute lg:right-0 lg:top-0 lg:bottom-0 relative h-[380px] lg:h-auto overflow-hidden bg-transparent z-10"
+          >
+            {/* Glowing background radial */}
+            <div className="absolute inset-0 z-10 rounded-full filter blur-3xl" />
+
+            <img
+              src="/assets/banner.png"
+              alt="GoSafe City Map Overview"
+              className="absolute inset-0 w-full h-full object-cover object-left-top select-none animate-fade-in"
+            />
+          </motion.div>
+        </section>
+      )}
 
       {/* Script for Goong Map */}
       <Script
@@ -1288,306 +1279,186 @@ export default function HomePage() {
       />
 
       {/* Map Section - Below Hero - OPEN TO EVERYONE (No session check) */}
-      <section id="map-section" className="pt-20 pb-0 bg-transparent">
-        <div className="container">
+      {(activeTab === "home" || activeTab === "navigation") && (
+        <section id="map-section" className="pt-20 pb-0 bg-transparent">
+          <div className="container">
 
-          <div className="text-left mb-10">
-            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-foreground">
-              Our <AuroraText>GoSafe</AuroraText> Map
-            </h2>
-            <p className="text-base sm:text-lg lg:text-xl font-medium text-foreground max-w-2xl mt-3 leading-relaxed">
-              Real-time commuter alerts and AI camera feeds. Click coordinates to report new incidents.
-            </p>
+            <div className="text-left mb-10">
+              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-foreground">
+                Our <AuroraText>GoSafe</AuroraText> Map
+              </h2>
+              <p className="text-base sm:text-lg lg:text-xl font-medium text-foreground max-w-2xl mt-3 leading-relaxed">
+                Real-time commuter alerts and AI camera feeds. Click coordinates to report new incidents.
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* The map card - ALWAYS RENDERED (Full Width, No Padding) */}
-        <div className="w-full border-y border-border/50 bg-card shadow-2xl relative flex flex-col h-[450px] sm:h-[600px] lg:h-[700px] p-0 gap-0 overflow-hidden">
+          {/* The map card - ALWAYS RENDERED (Full Width, No Padding) */}
+          <div className="w-full border-y border-border/50 bg-card shadow-2xl relative flex flex-col h-[450px] sm:h-[600px] lg:h-[700px] p-0 gap-0 overflow-hidden">
 
-          {/* Map rendering wrapper */}
-          <div className="flex-1 relative overflow-hidden h-full w-full">
+            {/* Map rendering wrapper */}
+            <div className="flex-1 relative overflow-hidden h-full w-full">
 
+              {/* Navigation Search & Detour Control Card */}
+              {activeTab === "navigation" && (
+                <div className="absolute top-4 left-4 z-20 w-80 bg-background border border-border rounded-3xl p-5 flex flex-col gap-4 text-xs">
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                      <Compass className="w-4 h-4 text-primary animate-pulse" /> Điều hướng tránh ngập VNU-HCM
+                    </h3>
+                    <p className="text-[10px] text-muted-foreground mt-1">Tìm đường đi tối ưu tránh mọi điểm tắc nghẽn, ngập úng trong Đại học Quốc gia.</p>
+                  </div>
 
+                  <div className="flex flex-col gap-2 bg-card p-3 rounded-2xl border border-border/50 font-semibold">
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase leading-none">Vị trí hiện tại:</span>
+                    <span className="text-foreground text-[11px] flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-primary" /> Đại học Quốc tế (VNU-HCM)</span>
+                  </div>
 
-            {/* Navigation simulation widget */}
-            {navStep !== "idle" && (
-              <div className="absolute top-3 right-3 z-20 p-3 rounded-xl bg-background border border-border shadow-lg w-[240px] text-[10px] flex flex-col gap-2 border-border/50">
-                <div className="flex items-center justify-between font-medium">
-                  <span className="flex items-center gap-1 font-bold"><Navigation className="w-3.5 h-3.5 text-primary animate-pulse" /> Detour Routing</span>
-                  <Button variant="ghost" size="icon" onClick={() => {
-                    setNavStep("idle");
-                    if (map && map.getLayer("route-layer")) {
-                      map.removeLayer("route-layer");
-                      map.removeSource("route-source");
-                    }
-                  }} className="h-5 w-5 rounded-full"><XCircle className="w-3 h-3" /></Button>
-                </div>
-                {navStep === "routing" ? (
-                  <>
-                    <p className="text-orange-500 bg-orange-500/10 p-1.5 rounded font-semibold border border-orange-500/20">
-                      Flooding detected. Rerouted automatically.
-                    </p>
-                    <Button onClick={triggerNavStart} className="w-full h-7 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-[10px] border-0">
-                      Accept Detour
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-green-500 bg-green-500/10 p-1.5 rounded font-semibold border border-green-500/20">
-                      Active guidance. Bypassing blockages.
-                    </p>
-                    <Button onClick={() => handleArriveDestination(5, "Hazard bypassed successfully.")} className="w-full h-7 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-[10px] border-0">
-                      Arrived (+5 credits)
-                    </Button>
-                  </>
-                )}
-              </div>
-            )}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[9px] font-bold text-muted-foreground uppercase leading-none mb-1">Điểm đến:</label>
+                    <input
+                      type="text"
+                      defaultValue="Nhà khách Đại học Quốc gia"
+                      className="p-3 border rounded-2xl bg-muted/20 border-border text-xs font-bold text-foreground outline-none focus:border-primary"
+                      placeholder="Nhập địa điểm đến..."
+                    />
+                  </div>
 
-            {/* Details Popup when Marker is selected */}
-            {selectedIncident && (
-              <div className="absolute bottom-3 left-3 right-3 z-20 p-3 rounded-xl bg-background border border-border shadow-2xl flex flex-col gap-2 text-[10px] border-border/50">
-                <div className="flex items-center justify-between border-b pb-1 border-border/50">
-                  <span className="font-bold capitalize">Alert: {selectedIncident.category === "FLOODING" ? "Flooding" : selectedIncident.category === "ACCIDENT" ? "Accident" : selectedIncident.category === "DEBRIS" ? "Road Debris" : "Pothole"}</span>
-                  <Button variant="ghost" size="icon" onClick={() => setSelectedIncident(null)} className="h-5 w-5 rounded-full"><XCircle className="w-3.5 h-3.5" /></Button>
-                </div>
-                <div className="flex gap-2">
-                  {selectedIncident.reports?.[0]?.imageUrl && (
-                    <img src={selectedIncident.reports[0].imageUrl} alt="attachment" className="w-12 h-12 object-cover rounded-lg border border-border/50" />
+                  <Button
+                    onClick={() => {
+                      handleStartNavigation();
+                    }}
+                    disabled={isNavigating}
+                    className="h-10 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold border-0 text-xs mt-1"
+                  >
+                    {isNavigating ? "Đang điều hướng..." : "Bắt đầu tìm đường"}
+                  </Button>
+
+                  {isNavigating && (
+                    <div className="flex flex-col gap-3 p-4 rounded-2xl bg-orange-500/10 text-orange-600 border border-orange-500/20 font-semibold leading-relaxed">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <span>Phát hiện ngập Võ Trường Toản</span>
+                      </div>
+                      <p className="text-[10px] font-semibold text-foreground">GoSafe tự động điều chỉnh hướng di chuyển vòng qua đường nội bộ VNU để tránh vùng ngập sâu 45cm.</p>
+                      <div className="text-[9px] text-muted-foreground border-t pt-1.5 border-orange-500/10 mt-1 flex justify-between font-bold">
+                        <span>Thời gian: ~3 phút</span>
+                        <span>Khoảng cách: 750m</span>
+                      </div>
+                    </div>
                   )}
-                  <div className="flex-1">
-                    <p className="font-bold">{selectedIncident.locationName}</p>
-                    <p className="text-foreground font-semibold">{selectedIncident.description}</p>
+                </div>
+              )}
+
+              {/* Navigation simulation widget */}
+              {navStep !== "idle" && (
+                <div className="absolute top-3 right-3 z-20 p-3 rounded-xl bg-background border border-border shadow-lg w-[240px] text-[10px] flex flex-col gap-2 border-border/50">
+                  <div className="flex items-center justify-between font-medium">
+                    <span className="flex items-center gap-1 font-bold"><Navigation className="w-3.5 h-3.5 text-primary animate-pulse" /> Detour Guidance</span>
+                    <Button variant="ghost" size="icon" onClick={() => {
+                      setNavStep("idle");
+                      if (map && map.getLayer("route-layer")) {
+                        map.removeLayer("route-layer");
+                        map.removeSource("route-source");
+                      }
+                    }} className="h-5 w-5 rounded-full"><XCircle className="w-3 h-3" /></Button>
                   </div>
-                </div>
-                <div className="bg-muted/50 p-2 rounded-lg text-foreground font-semibold leading-normal border text-[9px] border-border/50">
-                  <strong>AI Recommendation: </strong> {selectedIncident.recommendation}
-                </div>
-                <div className="flex items-center justify-end gap-2 border-t pt-1.5 border-border/50">
-                  <span className="text-[9px] text-foreground mr-auto">Is this incident cleared?</span>
-                  <Button size="sm" variant="outline" onClick={async () => {
-                    if (!session) {
-                      toast.error("Please sign in to verify incident!");
-                      return;
-                    }
-                    try {
-                      await fetch("/api/navigation", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ action: "arrive", sessionId: "feedback", rating: 5, comment: "Incident cleared" }),
-                      });
-                      toast.success("Feedback recorded! +5 credits earned.");
-                      fetchUserProfile();
-                      setSelectedIncident(null);
-                    } catch (e) { }
-                  }} className="h-6 text-[8px] font-bold rounded-lg px-2 border-border/50"><CheckCircle className="w-3 h-3 text-green-500 mr-1" /> Yes, Cleared (+5)</Button>
-                </div>
-              </div>
-            )}
-
-            {/* Floating Map Actions */}
-            <div className="absolute bottom-4 right-4 z-20 flex flex-col gap-2">
-              <Button onClick={() => {
-                if (!session) {
-                  toast.error("Please sign in to use detour routing!");
-                  return;
-                }
-                handleStartNavigation();
-              }} disabled={isNavigating} className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg flex items-center justify-center border-0 hover:scale-105 transition-transform">
-                <Navigation className="w-4.5 h-4.5" />
-              </Button>
-              <Button onClick={() => {
-                if (!session) {
-                  toast.error("Please sign in to report hazards!");
-                  return;
-                }
-                setIsReportOpen(true);
-              }} variant="outline" className="h-10 w-10 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform border border-border bg-background hover:bg-accent text-foreground">
-                <Plus className="w-5 h-5" />
-              </Button>
-            </div>
-
-            {/* Goong map container */}
-            <div id="goong-map" className="w-full h-full bg-transparent" />
-          </div>
-
-        </div>
-      </section>
-
-      {/* Admin Control Panel Section - ONLY visible if logged in as Admin */}
-      {session && session.user?.role === "ADMIN" && (
-        <section className="container py-16">
-          <div className="w-full max-w-5xl mx-auto flex flex-col gap-6">
-            <h3 className="text-xl font-bold border-b pb-3 border-border/50">Admin Control Panel</h3>
-
-            {/* Admin subtabs navigation */}
-            <div className="flex border-b border-border text-xs gap-4 font-medium pb-1.5 overflow-x-auto border-border/50">
-              <button
-                onClick={() => setActiveAdminSubTab("reports")}
-                className={cn("pb-2 px-1 border-b-2 border-transparent transition-all whitespace-nowrap bg-transparent border-0", activeAdminSubTab === "reports" && "border-primary text-primary font-bold")}
-              >
-                Incident Reports ({pendingReports.length})
-              </button>
-              <button
-                onClick={() => setActiveAdminSubTab("hazards")}
-                className={cn("pb-2 px-1 border-b-2 border-transparent transition-all whitespace-nowrap bg-transparent border-0", activeAdminSubTab === "hazards" && "border-primary text-primary font-bold")}
-              >
-                Active Hazards ({getFilteredIncidents().length})
-              </button>
-              <button
-                onClick={() => setActiveAdminSubTab("vouchers")}
-                className={cn("pb-2 px-1 border-b-2 border-transparent transition-all whitespace-nowrap bg-transparent border-0", activeAdminSubTab === "vouchers" && "border-primary text-primary font-bold")}
-              >
-                Vouchers Manager
-              </button>
-              <button
-                onClick={() => setActiveAdminSubTab("consent")}
-                className={cn("pb-2 px-1 border-b-2 border-transparent transition-all whitespace-nowrap bg-transparent border-0", activeAdminSubTab === "consent" && "border-primary text-primary font-bold")}
-              >
-                Privacy Consent Logs
-              </button>
-            </div>
-
-            {/* Subtab: Pending reports */}
-            {activeAdminSubTab === "reports" && (
-              <div className="flex flex-col gap-3">
-                {pendingReports.length === 0 ? (
-                  <div className="text-center py-10 border rounded-2xl text-foreground text-xs border-border/50">
-                    No pending incident reports.
-                  </div>
-                ) : (
-                  pendingReports.map((rep: any) => (
-                    <div key={rep.id} className="p-4 border rounded-2xl bg-card flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-xs shadow-sm border-border/50">
-                      <div className="flex gap-3">
-                        {rep.imageUrl && (
-                          <img src={rep.imageUrl} alt="attached" className="w-12 h-12 object-cover rounded-xl border border-border/50" />
-                        )}
-                        <div>
-                          <span className="font-bold capitalize text-foreground">{rep.category === "FLOODING" ? "Flooding" : rep.category === "ACCIDENT" ? "Accident" : rep.category === "DEBRIS" ? "Road Debris" : "Pothole"} ({rep.type})</span>
-                          <p className="text-foreground mt-0.5 font-medium">{rep.description}</p>
-                          <span className="text-[9px] text-foreground font-semibold block mt-1">Coordinates: {rep.latitude.toFixed(4)}, {rep.longitude.toFixed(4)}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 self-end sm:self-center">
-                        <Button variant="outline" size="sm" onClick={() => handleRejectReport(rep.id)} className="h-8 rounded-xl px-3 text-[10px] text-red-500 border-red-500/20 font-bold">Reject</Button>
-                        <Button size="sm" onClick={() => handleOpenApprove(rep)} className="h-8 rounded-xl px-3 text-[10px] bg-primary hover:bg-primary/90 text-primary-foreground font-bold border-0">Verify &amp; AI Assess</Button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* Subtab: Active Hazards */}
-            {activeAdminSubTab === "hazards" && (
-              <div className="flex flex-col gap-4">
-                {/* Advanced filters */}
-                <div className="flex flex-wrap gap-2 text-[10px]">
-                  <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="p-2 border rounded-xl bg-background font-bold border-border/50">
-                    <option value="ALL">All Categories</option>
-                    <option value="FLOODING">Flooding</option>
-                    <option value="ACCIDENT">Accident</option>
-                    <option value="DEBRIS">Debris</option>
-                    <option value="POTHOLES">Potholes</option>
-                  </select>
-                  <select value={filterRiskLevel} onChange={(e) => setFilterRiskLevel(e.target.value)} className="p-2 border rounded-xl bg-background font-bold border-border/50">
-                    <option value="ALL">All Risk Levels</option>
-                    <option value="HIGH">High</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="LOW">Low</option>
-                  </select>
-                  <input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="p-2 border rounded-xl bg-background w-28 border-border/50 font-bold" />
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  {getFilteredIncidents().length === 0 ? (
-                    <div className="text-center py-10 border rounded-2xl text-foreground text-xs border-border/50">
-                      No matching active hazards.
-                    </div>
+                  {navStep === "routing" ? (
+                    <>
+                      <p className="text-orange-500 bg-orange-500/10 p-1.5 rounded font-semibold border border-orange-500/20">
+                        Flooding detected. Rerouted automatically.
+                      </p>
+                      <Button onClick={triggerNavStart} className="w-full h-7 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-[10px] border-0">
+                        Accept Detour
+                      </Button>
+                    </>
                   ) : (
-                    getFilteredIncidents().map((inc: any) => (
-                      <div key={inc.id} className="p-4 border rounded-2xl bg-card flex justify-between items-center text-xs shadow-sm border-border/50">
-                        <div>
-                          <span className={cn("px-1.5 py-0.5 rounded text-[8px] font-bold uppercase mr-2", inc.riskLevel === "HIGH" ? "bg-red-500/10 text-red-500" : "bg-orange-500/10 text-orange-500")}>
-                            {inc.riskLevel === "HIGH" ? "HIGH" : inc.riskLevel === "MEDIUM" ? "MEDIUM" : "LOW"} ({inc.riskScore}%)
-                          </span>
-                          <span className="font-bold text-foreground">{inc.locationName}</span>
-                          <p className="text-foreground font-medium mt-1">{inc.description}</p>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={() => handleClearIncident(inc.id)} className="h-8 rounded-xl text-[10px] text-green-500 border-green-500/20 font-bold">Mark Cleared</Button>
-                      </div>
-                    ))
+                    <>
+                      <p className="text-green-500 bg-green-500/10 p-1.5 rounded font-semibold border border-green-500/20">
+                        Active guidance. Bypassing blockages.
+                      </p>
+                      <Button onClick={() => handleArriveDestination(5, "Hazard bypassed successfully.")} className="w-full h-7 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-[10px] border-0">
+                        Arrived (+5 credits)
+                      </Button>
+                    </>
                   )}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Subtab: Vouchers creation */}
-            {activeAdminSubTab === "vouchers" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
-                <div className="p-5 border rounded-2xl bg-card border-border/50">
-                  <h4 className="font-bold mb-3">Add Voucher</h4>
-                  <form onSubmit={handleAddVoucherSubmit} className="flex flex-col gap-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <input type="text" value={voucherCode} onChange={(e) => setVoucherCode(e.target.value)} placeholder="VOUCHER CODE" className="p-3 border rounded-xl bg-background uppercase font-mono font-bold border-border/50" />
-                      <input type="text" value={voucherTitle} onChange={(e) => setVoucherTitle(e.target.value)} placeholder="Voucher Title" className="p-3 border rounded-xl bg-background font-bold border-border/50" />
+              {/* Details Popup when Marker is selected */}
+              {selectedIncident && (
+                <div className="absolute bottom-3 left-3 right-3 z-20 p-3 rounded-xl bg-background border border-border shadow-2xl flex flex-col gap-2 text-[10px] border-border/50">
+                  <div className="flex items-center justify-between border-b pb-1 border-border/50">
+                    <span className="font-bold capitalize">Alert: {selectedIncident.category === "FLOODING" ? "Flooding" : selectedIncident.category === "ACCIDENT" ? "Accident" : selectedIncident.category === "DEBRIS" ? "Road Debris" : "Pothole"}</span>
+                    <Button variant="ghost" size="icon" onClick={() => setSelectedIncident(null)} className="h-5 w-5 rounded-full"><XCircle className="w-3.5 h-3.5" /></Button>
+                  </div>
+                  <div className="flex gap-2">
+                    {selectedIncident.reports?.[0]?.imageUrl && (
+                      <img src={selectedIncident.reports[0].imageUrl} alt="attachment" className="w-12 h-12 object-cover rounded-lg border border-border/50" />
+                    )}
+                    <div className="flex-1">
+                      <p className="font-bold">{selectedIncident.locationName}</p>
+                      <p className="text-foreground font-semibold">{selectedIncident.description}</p>
                     </div>
-                    <textarea value={voucherDesc} onChange={(e) => setVoucherDesc(e.target.value)} placeholder="Description details..." className="p-3 border rounded-xl bg-background h-16 resize-none font-bold border-border/50" />
-                    <div className="grid grid-cols-2 gap-2">
-                      <input type="number" value={voucherPoints} onChange={(e) => setVoucherPoints(parseInt(e.target.value) || 0)} placeholder="Points Required" className="p-3 border rounded-xl bg-background font-bold border-border/50" />
-                      <input type="number" value={voucherQty} onChange={(e) => setVoucherQty(parseInt(e.target.value) || 0)} placeholder="Quantity" className="p-3 border rounded-xl bg-background font-bold border-border/50" />
-                    </div>
-                    <Button type="submit" className="h-10 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold border-0">Add Voucher</Button>
-                  </form>
+                  </div>
+                  <div className="bg-muted/50 p-2 rounded-lg text-foreground font-semibold leading-normal border text-[9px] border-border/50">
+                    <strong>AI Recommendation: </strong> {selectedIncident.recommendation}
+                  </div>
+                  <div className="flex items-center justify-end gap-2 border-t pt-1.5 border-border/50">
+                    <span className="text-[9px] text-foreground mr-auto">Is this incident cleared?</span>
+                    <Button size="sm" variant="outline" onClick={async () => {
+                      if (!session) {
+                        toast.error("Please sign in to verify incident!");
+                        return;
+                      }
+                      try {
+                        await fetch("/api/navigation", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ action: "arrive", sessionId: "feedback", rating: 5, comment: "Incident cleared" }),
+                        });
+                        toast.success("Feedback recorded! +5 credits earned.");
+                        fetchUserProfile();
+                        setSelectedIncident(null);
+                      } catch (e) { }
+                    }} className="h-6 text-[8px] font-bold rounded-lg px-2 border-border/50"><CheckCircle className="w-3 h-3 text-green-500 mr-1" /> Yes, Cleared (+5)</Button>
+                  </div>
                 </div>
+              )}
 
-                <div className="p-5 border rounded-2xl bg-orange-50/5 flex flex-col gap-3 border-border/50">
-                  <div className="flex items-center gap-1.5 text-orange-500 font-bold"><Bell className="w-4 h-4" /> Broadcast Emergency Notice</div>
-                  <form onSubmit={handleBroadcastAlert} className="flex flex-col gap-2">
-                    <input type="text" value={broadcastTitle} onChange={(e) => setBroadcastTitle(e.target.value)} placeholder="Notice Title" className="p-3 border rounded-xl bg-background font-bold border-border/50" />
-                    <input type="text" value={broadcastMessage} onChange={(e) => setBroadcastMessage(e.target.value)} placeholder="Instruction message alert..." className="p-3 border rounded-xl bg-background font-bold border-border/50" />
-                    <Button type="submit" className="h-10 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold mt-1 border-0">Broadcast Alert</Button>
-                  </form>
-                </div>
+              {/* Floating Map Actions */}
+              <div className="absolute bottom-4 right-4 z-20 flex flex-col gap-2">
+                <Button onClick={() => {
+                  if (!session) {
+                    toast.error("Please sign in to use detour routing!");
+                    return;
+                  }
+                  handleStartNavigation();
+                }} disabled={isNavigating} className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg flex items-center justify-center border-0 hover:scale-105 transition-transform">
+                  <Navigation className="w-4.5 h-4.5" />
+                </Button>
+                <Button onClick={() => {
+                  if (!session) {
+                    toast.error("Please sign in to report hazards!");
+                    return;
+                  }
+                  setIsReportOpen(true);
+                }} variant="outline" className="h-10 w-10 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform border border-border bg-background hover:bg-accent text-foreground">
+                  <Plus className="w-5 h-5" />
+                </Button>
               </div>
-            )}
 
-            {/* Subtab: User consent */}
-            {activeAdminSubTab === "consent" && (
-              <div className="border rounded-2xl overflow-hidden text-xs shadow-sm border-border/50">
-                <table className="w-full">
-                  <thead className="bg-muted text-foreground text-[10px] font-bold border-b border-border/50">
-                    <tr>
-                      <th className="p-3 text-left">User</th>
-                      <th className="p-3 text-left">Consent Status</th>
-                      <th className="p-3 text-left">Credits Balance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {adminUsers.map((usr: any) => (
-                      <tr key={usr.id} className="border-b last:border-0 hover:bg-muted/10 bg-card border-border/50 font-bold">
-                        <td className="p-3">
-                          <p className="font-bold">{usr.name || "Anonymous"}</p>
-                          <p className="text-[10px] text-foreground/75 font-semibold">{usr.email}</p>
-                        </td>
-                        <td className="p-3">
-                          <span className={cn("px-2 py-0.5 rounded-full text-[9px] font-bold uppercase", usr.consent ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500")}>
-                            {usr.consent ? "GRANTED" : "REVOKED"}
-                          </span>
-                        </td>
-                        <td className="p-3 font-bold">{usr.points}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+              {/* Goong map container */}
+              <div id="goong-map" className="w-full h-full bg-transparent" />
+            </div>
+
           </div>
         </section>
       )}
 
       {/* Platform Features / Bento Grid Informational Section */}
-      <ModulesSection />
+      {activeTab === "home" && (
+        <ModulesSection />
+      )}
 
       {/* Floating Report Hazard Dialog */}
       {isReportOpen && (
@@ -1595,7 +1466,7 @@ export default function HomePage() {
           <div className="bg-background border border-border shadow-2xl rounded-3xl w-full max-w-md p-6 flex flex-col gap-4 text-xs border-border/50">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-sm flex items-center gap-1">
-                <AlertTriangle className="w-5 h-5 text-red-500 animate-pulse" /> Report Road Hazard
+                Report Road Hazard
               </h3>
               <Button variant="ghost" size="icon" onClick={() => setIsReportOpen(false)} className="h-8 w-8 rounded-full"><XCircle className="w-5 h-5" /></Button>
             </div>
@@ -1685,160 +1556,176 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Vouchers Catalog Modal (Redeem Tab) */}
+      {/* Redeem Vouchers Inline Tab Section */}
       {activeTab === "redeem" && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-background border border-border shadow-2xl rounded-3xl w-full max-w-2xl p-6 flex flex-col gap-4 text-xs border-border/50 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b pb-3 border-border/50">
-              <h3 className="font-bold text-sm flex items-center gap-1.5">
-                <Award className="w-5 h-5 text-primary" /> Vouchers Catalog
-              </h3>
-              <Button variant="ghost" size="icon" onClick={() => setActiveTab("home")} className="h-8 w-8 rounded-full">
-                <XCircle className="w-5 h-5" />
-              </Button>
+        <section className="container mx-auto px-6 py-24 flex flex-col gap-6 text-xs max-w-4xl min-h-[calc(100vh-8rem)]">
+          <div className="flex items-center justify-between border-b pb-4 border-border/50">
+            <div>
+              <h2 className="text-3xl font-bold text-foreground">Danh mục Đổi Voucher</h2>
+              <p className="text-xs text-muted-foreground mt-1">Sử dụng điểm thưởng GoSafe tích lũy được từ việc báo cáo sự cố để nhận quà.</p>
             </div>
+            <Award className="w-10 h-10 text-primary animate-pulse" />
+          </div>
 
-            <div className="p-4 rounded-2xl bg-card border border-border/50 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div>
-                <h4 className="text-sm font-bold">Credits Wallet Balance</h4>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  You currently have <strong className="text-primary">{points} credits</strong>. Exchange them for vouchers below.
-                </p>
-              </div>
-              <Award className="w-8 h-8 text-primary animate-pulse" />
+          <div className="p-5 rounded-3xl bg-card border border-border/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h4 className="text-sm font-bold text-foreground">Ví điểm thưởng GoSafe</h4>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Bạn hiện đang sở hữu <strong className="text-primary text-sm font-bold">{points} điểm</strong>.
+              </p>
             </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {vouchers.map((voucher: any) => (
-                <div key={voucher.id} className="p-4 rounded-xl border bg-card flex flex-col justify-between gap-3 shadow-sm border-border/50">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between gap-2 border-b pb-1.5 border-border/50">
-                      <h5 className="font-bold text-xs leading-snug">{voucher.title}</h5>
-                      <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[9px]">
-                        {voucher.pointsRequired} pts
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground leading-normal">{voucher.description}</p>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] font-semibold pt-1 border-t border-border/50">
-                    <span>Stock: <span className="text-primary font-bold">{voucher.quantity}</span></span>
-                    <Button
-                      size="sm"
-                      disabled={points < voucher.pointsRequired || voucher.quantity <= 0}
-                      onClick={() => handleVoucherExchange(voucher.id, voucher.pointsRequired)}
-                      className="h-6 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-[9px] font-bold border-0 px-2.5"
-                    >
-                      Redeem
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Claimed History */}
-            <div className="pt-4 border-t border-border/50">
-              <h4 className="font-semibold text-[10px] uppercase tracking-wider text-muted-foreground mb-3">Claimed Voucher History</h4>
-              {claimedVouchers.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground text-[10px] border border-dashed rounded-xl border-border/50">
-                  You have not claimed any vouchers yet.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {claimedVouchers.map((c: any) => (
-                    <div key={c.id} className="p-2.5 border rounded-xl bg-card flex justify-between items-center text-[10px] shadow-sm border-border/50">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-medium">{c.voucher.title}</span>
-                        <span className="font-mono text-[8px] text-primary uppercase">{c.voucher.code}</span>
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="text-[9px] text-muted-foreground">{new Date(c.exchangedAt).toLocaleDateString()}</span>
-                        <span className="px-1.5 py-0.2 rounded-full bg-green-500/10 text-green-600 font-medium text-[7px] uppercase">{c.status}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="px-4 py-2 bg-primary/10 border border-primary/20 text-primary font-bold rounded-2xl text-xs">
+              Số dư: {points} pts
             </div>
           </div>
-        </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {vouchers.map((voucher: any) => (
+              <div key={voucher.id} className="p-5 rounded-3xl border bg-card flex flex-col justify-between gap-4 border-border/50">
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between gap-2 border-b pb-2 border-border/50">
+                    <h5 className="font-bold text-xs leading-snug text-foreground">{voucher.title}</h5>
+                    <span className="px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-bold text-[9px]">
+                      {voucher.pointsRequired} pts
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-normal mt-1">{voucher.description}</p>
+                </div>
+                <div className="flex items-center justify-between text-[10px] font-semibold pt-2 border-t border-border/50">
+                  <span>Kho hàng: <span className="text-primary font-bold">{voucher.quantity} chiếc</span></span>
+                  <Button
+                    size="sm"
+                    disabled={points < voucher.pointsRequired || voucher.quantity <= 0}
+                    onClick={() => handleVoucherExchange(voucher.id, voucher.pointsRequired)}
+                    className="h-7 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] font-bold border-0 px-3.5"
+                  >
+                    Đổi ngay
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Claimed History */}
+          <div className="pt-6 border-t border-border/50 mt-4">
+            <h4 className="font-bold text-xs text-foreground uppercase mb-3">Lịch sử đổi Voucher của bạn</h4>
+            {claimedVouchers.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-[10px] border border-dashed rounded-2xl border-border/50 bg-slate-50/50">
+                Bạn chưa đổi bất kỳ voucher nào. Hãy tích cực báo cáo sự cố để kiếm điểm!
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {claimedVouchers.map((c: any) => (
+                  <div key={c.id} className="p-4 border rounded-2xl bg-card flex justify-between items-center text-[10px] border-border/50">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-bold text-foreground">{c.voucher.title}</span>
+                      <span className="font-mono text-[9px] text-primary uppercase font-bold">{c.voucher.code}</span>
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 font-semibold">
+                      <span className="text-[9px] text-muted-foreground">{new Date(c.exchangedAt).toLocaleDateString()}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 font-bold text-[8px] uppercase">{c.status}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
       )}
 
-      {/* Profile & Settings Modal */}
+      {/* User Profile Inline Tab Section */}
       {activeTab === "profile" && session && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-background border border-border shadow-2xl rounded-3xl w-full max-w-md p-6 flex flex-col gap-4 text-xs border-border/50">
-            <div className="flex items-center justify-between border-b pb-3 border-border/50">
-              <h3 className="font-bold text-sm flex items-center gap-1.5">
-                <User className="w-5 h-5 text-primary" /> My Profile &amp; Settings
-              </h3>
-              <Button variant="ghost" size="icon" onClick={() => setActiveTab("home")} className="h-8 w-8 rounded-full">
-                <XCircle className="w-5 h-5" />
-              </Button>
+        <section className="container mx-auto px-6 py-24 flex flex-col gap-6 text-xs max-w-md min-h-[calc(100vh-8rem)]">
+          <div className="flex items-center justify-between border-b pb-4 border-border/50">
+            <h2 className="text-2xl font-bold text-foreground">Hồ sơ &amp; Thiết lập</h2>
+          </div>
+
+          <div className="flex items-center gap-4 p-4 border rounded-3xl border-border/50 bg-card">
+            <div className="w-16 h-16 rounded-full overflow-hidden ring-2 ring-primary/20">
+              <img
+                src={session.user?.image || "/logo.png"}
+                alt={session.user?.name || "User"}
+                className="w-full h-full object-cover"
+              />
             </div>
-
-            <div className="flex items-center gap-3 p-2 border-b pb-4 border-border/50">
-              <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-primary/20">
-                <img
-                  src={session.user?.image || "/logo.png"}
-                  alt={session.user?.name || "User"}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-bold text-foreground">{session.user?.name}</span>
-                <span className="text-[10px] text-muted-foreground">{session.user?.email}</span>
-                <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[8px] font-bold w-fit mt-1 uppercase tracking-wider">
-                  {session.user?.role || "MEMBER"}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <div className="flex justify-between items-center bg-card p-3.5 rounded-xl border border-border/50">
-                <div>
-                  <h4 className="font-bold text-xs">Credits Wallet</h4>
-                  <p className="text-[10px] text-muted-foreground">Exchangeable for merchant vouchers</p>
-                </div>
-                <span className="text-base font-bold text-primary">✨ {points} pts</span>
-              </div>
-
-              {/* Privacy settings */}
-              <div className="flex flex-col gap-2 p-3.5 rounded-xl border bg-card border-border/50">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs">Privacy Consent</span>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={consent}
-                      onChange={handleConsentToggle}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-background after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                  </label>
-                </div>
-                <p className="text-[10px] text-muted-foreground leading-normal">
-                  Opt-in to share real-time anonymous location and road hazard reports to help build sustainable cities.
-                </p>
-              </div>
-
-              {/* Log Out action */}
-              <Button
-                variant="outline"
-                onClick={() => signOut()}
-                className="h-10 rounded-xl mt-2 text-red-500 border-red-500/20 hover:bg-red-500/5 hover:text-red-500 font-bold text-xs"
-              >
-                Sign Out / Log Out
-              </Button>
+            <div className="flex flex-col">
+              <span className="text-base font-bold text-foreground">{session.user?.name}</span>
+              <span className="text-[10px] text-muted-foreground">{session.user?.email}</span>
+              <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[8px] font-bold w-fit mt-1.5 uppercase">
+                {session.user?.role || "MEMBER"}
+              </span>
             </div>
           </div>
-        </div>
+
+          {/* Credits Wallet */}
+          <div className="flex justify-between items-center bg-card p-4 rounded-3xl border border-border/50">
+            <div>
+              <h4 className="font-bold text-xs text-foreground">Ví tích lũy điểm thưởng</h4>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Dùng để đổi quà tặng Voucher đối tác</p>
+            </div>
+            <span className="text-base font-bold text-primary">{points} pts</span>
+          </div>
+
+          {/* Mobile App Settings Group */}
+          <div className="flex flex-col border border-border/50 rounded-3xl bg-card overflow-hidden">
+            <div className="p-4 border-b border-border/50 flex justify-between items-center hover:bg-slate-50/50 cursor-pointer">
+              <div className="flex items-center gap-3 font-semibold text-foreground">
+                <User className="w-4 h-4 text-slate-400" />
+                <span>Thiết lập tài khoản</span>
+              </div>
+              <span className="text-slate-400 font-bold">&gt;</span>
+            </div>
+            <div className="p-4 border-b border-border/50 flex justify-between items-center hover:bg-slate-50/50 cursor-pointer">
+              <div className="flex items-center gap-3 font-semibold text-foreground">
+                <Compass className="w-4 h-4 text-slate-400" />
+                <span>Phương tiện mặc định</span>
+              </div>
+              <span className="text-slate-400 font-bold">&gt;</span>
+            </div>
+            <div className="p-4 border-b border-border/50 flex justify-between items-center hover:bg-slate-50/50 cursor-pointer">
+              <div className="flex items-center gap-3 font-semibold text-foreground">
+                <Bell className="w-4 h-4 text-slate-400" />
+                <span>Thông báo cảnh báo ngập lụt</span>
+              </div>
+              <span className="text-slate-400 font-bold">&gt;</span>
+            </div>
+            
+            {/* Consent Toggle inside menu */}
+            <div className="p-4 border-b border-border/50 flex items-center justify-between">
+              <div className="flex items-center gap-3 font-semibold text-foreground">
+                <Shield className="w-4 h-4 text-slate-400" />
+                <div>
+                  <span>Đồng ý Quyền riêng tư</span>
+                  <p className="text-[9px] text-muted-foreground font-normal mt-0.5">Chia sẻ vị trí ẩn danh giúp cải thiện dự báo</p>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  onChange={handleConsentToggle}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-background after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+              </label>
+            </div>
+          </div>
+
+          <Button
+            variant="outline"
+            onClick={() => signOut()}
+            className="h-10 rounded-2xl mt-2 text-red-500 border-red-500/20 hover:bg-red-500/5 hover:text-red-500 font-bold text-xs"
+          >
+            Đăng xuất tài khoản
+          </Button>
+        </section>
       )}
 
       {/* Bottom Center Floating Navigation Bar */}
       {session && session.user && session.user.role !== "ADMIN" && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-background/95 backdrop-blur-md px-4 py-2.5 rounded-full border border-border shadow-2xl flex items-center gap-3 w-fit select-none">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-background/80 backdrop-blur-md px-5 py-3 rounded-full border border-border shadow-lg flex items-center gap-4 w-fit select-none">
           
-          {/* Tab 1: Home Navigation */}
+          {/* Tab 1: Home Map */}
           <button
             onClick={() => setActiveTab("home")}
             className={cn(
@@ -1854,21 +1741,39 @@ export default function HomePage() {
               />
             )}
             <Map className="w-4 h-4" />
-            <span>Home Map</span>
-            {/* Badge for Navigation / Reports */}
-            {(isNavigating || pendingReports.length > 0) && (
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-              </span>
-            )}
+            <span>Home</span>
           </button>
 
-          {/* Tab 2: Redeem */}
+          {/* Tab 2: Navigation */}
           <button
             onClick={() => {
               if (!session) {
-                toast.error("Please sign in to view vouchers!");
+                toast.error("Vui lòng đăng nhập để sử dụng tính năng điều hướng!");
+                return;
+              }
+              setActiveTab("navigation");
+            }}
+            className={cn(
+              "relative px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-colors border-0 bg-transparent cursor-pointer",
+              activeTab === "navigation" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {activeTab === "navigation" && (
+              <motion.div
+                layoutId="active-nav-pill"
+                className="absolute inset-0 bg-primary rounded-full z-[-1]"
+                transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              />
+            )}
+            <Compass className="w-4 h-4" />
+            <span>Navigation</span>
+          </button>
+
+          {/* Tab 3: Redeem */}
+          <button
+            onClick={() => {
+              if (!session) {
+                toast.error("Vui lòng đăng nhập để đổi quà!");
                 return;
               }
               setActiveTab("redeem");
@@ -1886,15 +1791,10 @@ export default function HomePage() {
               />
             )}
             <Award className="w-4 h-4" />
-            <span>Redeem</span>
-            {points > 0 && (
-              <span className="px-1.5 py-0.5 rounded bg-primary/20 text-primary text-[8px] font-bold">
-                {points}
-              </span>
-            )}
+            <span>Redemption</span>
           </button>
 
-          {/* Tab 3: Profile */}
+          {/* Tab 4: Profile */}
           <button
             onClick={() => {
               if (!session) {
@@ -1916,7 +1816,7 @@ export default function HomePage() {
               />
             )}
             <User className="w-4 h-4" />
-            <span>Profile</span>
+            <span>My Profile</span>
           </button>
         </div>
       )}

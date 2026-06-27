@@ -80,13 +80,13 @@ export function ModulesSection() {
                 </p>
               </div>
               
-              {/* Big Grab logo standing static on the right with blur background (2x larger) */}
+              {/* Big UrbanLoop logo standing static on the right with blur background (2x larger) */}
               <div className="relative shrink-0 mr-2">
-                <div className="absolute -inset-4 bg-[#00b14f]/25 rounded-full filter blur-xl opacity-80" />
+                <div className="absolute -inset-4 bg-teal-500/20 rounded-full filter blur-xl opacity-80" />
                 <img 
-                  src="/assets/companies/grab.png" 
-                  alt="Grab" 
-                  className="h-20 w-auto object-contain dark:brightness-110 relative z-10 select-none" 
+                  src="/assets/companies/urbanloop.png" 
+                  alt="UrbanLoop" 
+                  className="h-20 w-auto object-contain rounded-2xl dark:brightness-110 relative z-10 select-none" 
                 />
               </div>
             </div>

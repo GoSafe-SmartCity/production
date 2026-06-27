@@ -58,11 +58,36 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: Submit a citizen report
+// POST: Submit a citizen report or direct incident creation (Admin)
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
-    const { category, latitude, longitude, description, imageUrl, type } = await req.json();
+    const body = await req.json();
+
+    // Check if admin is creating incident directly
+    if (session?.user?.role === "ADMIN" && body.directCreate) {
+      const { category, riskLevel, riskScore, locationName, description, recommendation, latitude, longitude } = body;
+      if (!category || !locationName || !description || latitude === undefined || longitude === undefined) {
+        return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+      }
+      const incident = await prisma.roadIncident.create({
+        data: {
+          category,
+          riskLevel: riskLevel || "LOW",
+          riskScore: parseInt(riskScore) || 0,
+          locationName,
+          description,
+          recommendation: recommendation || "",
+          latitude: parseFloat(latitude),
+          longitude: parseFloat(longitude),
+          status: "ACTIVE",
+          startedAt: new Date(),
+        }
+      });
+      return NextResponse.json({ success: true, incident });
+    }
+
+    const { category, latitude, longitude, description, imageUrl, type } = body;
 
     if (!category || !latitude || !longitude || !description) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -96,6 +121,66 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ success: true, report });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// PUT: Update an active road incident (Admin CRUD)
+export async function PUT(req: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session || session.user?.role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    const { id, category, riskScore, riskLevel, latitude, longitude, locationName, description, recommendation, status } = await req.json();
+
+    if (!id || !category || !locationName || !description) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const incident = await prisma.roadIncident.update({
+      where: { id },
+      data: {
+        category,
+        riskScore: parseInt(riskScore) || 0,
+        riskLevel,
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        locationName,
+        description,
+        recommendation: recommendation || "",
+        status: status || "ACTIVE",
+      },
+    });
+
+    return NextResponse.json({ success: true, incident });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// DELETE: Remove a road incident (Admin CRUD)
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session || session.user?.role !== "ADMIN") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json({ error: "Missing incident ID" }, { status: 400 });
+    }
+
+    await prisma.roadIncident.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
