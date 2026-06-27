@@ -297,10 +297,10 @@ export default function HomePage() {
       })
         .setLngLat(midCoord)
         .setHTML(`
-          <div class="flex items-center gap-2">
-            <span class="text-base sm:text-lg">⚠️</span>
-            <span class="font-extrabold text-[12px] sm:text-xs text-neutral-900 dark:text-neutral-100 tracking-tight leading-normal">
-              Đoạn đường <span class="text-[#00a850] dark:text-[#05c46b] font-black">Võ Thị Sáu</span> sắp ngập trong <span class="text-yellow-600 dark:text-yellow-400 font-black">10</span> phút tới
+          <div class="flex items-center gap-3">
+            <span class="text-lg sm:text-xl md:text-2xl">⚠️</span>
+            <span class="font-extrabold text-sm sm:text-base md:text-lg text-neutral-900 dark:text-neutral-100 tracking-normal leading-relaxed">
+              Đoạn đường <span class="text-[#00a850] dark:text-[#05c46b] font-black">Võ Thị Sáu</span> sắp ngập trong <span class="text-yellow-600 dark:text-yellow-400 font-black">10 phút</span> tới
             </span>
           </div>
         `)

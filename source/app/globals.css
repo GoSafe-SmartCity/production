@@ -359,10 +359,10 @@
   -webkit-backdrop-filter: blur(12px) !important;
   border: 1.5px solid rgba(217, 119, 6, 0.25) !important;
   border-radius: 9999px !important;
-  padding: 8px 24px !important;
-  min-width: 320px !important;
-  max-width: 450px !important;
-  box-shadow: 0 10px 25px -5px rgba(217, 119, 6, 0.1), 0 12px 24px -10px rgba(0, 0, 0, 0.15) !important;
+  padding: 16px 36px !important;
+  min-width: 520px !important;
+  max-width: 750px !important;
+  box-shadow: 0 12px 35px -5px rgba(217, 119, 6, 0.15), 0 20px 45px -15px rgba(0, 0, 0, 0.2) !important;
 }
 .custom-popup .goongjs-popup-tip {
   border-top-color: rgba(255, 255, 255, 0.85) !important;
