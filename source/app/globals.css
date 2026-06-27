@@ -351,3 +351,32 @@
   -ms-overflow-style: none;
   /* IE/Edge */
 }
+
+/* Custom Transparent Glassmorphic Popup for Goong Map */
+.custom-popup .goongjs-popup-content {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1.5px solid rgba(217, 119, 6, 0.25) !important;
+  border-radius: 9999px !important;
+  padding: 8px 24px !important;
+  min-width: 320px !important;
+  max-width: 450px !important;
+  box-shadow: 0 10px 25px -5px rgba(217, 119, 6, 0.1), 0 12px 24px -10px rgba(0, 0, 0, 0.15) !important;
+}
+.custom-popup .goongjs-popup-tip {
+  border-top-color: rgba(255, 255, 255, 0.85) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.85) !important;
+  border-left-color: rgba(255, 255, 255, 0.85) !important;
+  border-right-color: rgba(255, 255, 255, 0.85) !important;
+}
+.dark .custom-popup .goongjs-popup-content {
+  background: rgba(15, 15, 15, 0.85) !important;
+  border-color: rgba(217, 119, 6, 0.3) !important;
+}
+.dark .custom-popup .goongjs-popup-tip {
+  border-top-color: rgba(15, 15, 15, 0.85) !important;
+  border-bottom-color: rgba(15, 15, 15, 0.85) !important;
+  border-left-color: rgba(15, 15, 15, 0.85) !important;
+  border-right-color: rgba(15, 15, 15, 0.85) !important;
+}
