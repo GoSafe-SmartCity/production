@@ -1,5 +1,54 @@
+import 'dotenv/config';
 import prisma from "../lib/prisma";
 import { crawlGoogleImage } from "../lib/image-crawler";
+
+function decodePolyline(encoded: string): [number, number][] {
+  const points: [number, number][] = [];
+  let index = 0, len = encoded.length;
+  let lat = 0, lng = 0;
+
+  while (index < len) {
+    let b, shift = 0, result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lat += dlat;
+
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lng += dlng;
+
+    points.push([lng / 1e5, lat / 1e5]);
+  }
+  return points;
+}
+
+async function fetchGoongRoute(startLat: number, startLng: number, endLat: number, endLng: number): Promise<[number, number][]> {
+  const apiKey = process.env.NEXT_PUBLIC_GOONG_API_KEY || "2X3t5rZDLQiFHgLAdeGC8tkz2RZdTwfwMDtyFYSm";
+  const url = `https://rsapi.goong.io/direction?origin=${startLat},${startLng}&destination=${endLat},${endLng}&vehicle=car&api_key=${apiKey}`;
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      const polyline = data.routes?.[0]?.overview_polyline?.points;
+      if (polyline) {
+        return decodePolyline(polyline);
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch Goong route for seed:", e);
+  }
+  return [[startLng, startLat], [endLng, endLat]];
+}
 
 
 /**
@@ -114,8 +163,10 @@ async function main() {
       description: "Ngập nặng tại ngã tư Marie Curie – William Shakespeare. Mực nước đo được 45cm, xe máy chết máy hàng loạt.",
       recommendation: "CẤM ĐƯỜNG. Mực nước quá sâu. Xe máy đi vòng qua đường nội bộ ĐHQG. Ô tô chậm lại cẩn thận.",
       status: "ACTIVE",
-      streetCoords: JSON.stringify([[106.7991941, 10.8791999], [106.8004081, 10.8789166], [106.8013148, 10.8783257]]),
-      geom: JSON.stringify([[106.7991941, 10.8791999], [106.8004081, 10.8789166], [106.8013148, 10.8783257]]),
+      startLat: 10.8791999,
+      startLng: 106.7991941,
+      endLat: 10.8783257,
+      endLng: 106.8013148
     },
     {
       category: "FLOODING",
@@ -127,8 +178,10 @@ async function main() {
       description: "Đọng nước 20cm sau cơn mưa lớn. Xe vẫn lưu thông chậm được nhưng cần cẩn thận.",
       recommendation: "NGẬP VỪA. Đi chậm, giữ ga đều. Không tắt máy giữa vùng ngập.",
       status: "ACTIVE",
-      streetCoords: JSON.stringify([[106.7991941, 10.8791999], [106.8004081, 10.8789166], [106.8013148, 10.8783257]]),
-      geom: JSON.stringify([[106.7991941, 10.8791999], [106.8004081, 10.8789166], [106.8013148, 10.8783257]]),
+      startLat: 10.8791999,
+      startLng: 106.7991941,
+      endLat: 10.8789166,
+      endLng: 106.8004081
     },
     {
       category: "DEBRIS",
@@ -140,8 +193,10 @@ async function main() {
       description: "Cành cây gãy chắn ngang làn phải. Ảnh hưởng nhẹ đến giao thông.",
       recommendation: "NGUY CƠ THẤP. Đường thông, lái vòng qua chướng ngại vật.",
       status: "ACTIVE",
-      streetCoords: JSON.stringify([[106.8013148, 10.8783257], [106.8021, 10.8778]]),
-      geom: JSON.stringify([[106.8013148, 10.8783257], [106.8021, 10.8778]]),
+      startLat: 10.8783257,
+      startLng: 106.8013148,
+      endLat: 10.8778,
+      endLng: 106.8021
     },
   ];
 
@@ -154,8 +209,22 @@ async function main() {
   await prisma.incidentFeedback.deleteMany({});
   
   for (const inc of incidentsData) {
+    const coords = await fetchGoongRoute(inc.startLat, inc.startLng, inc.endLat, inc.endLng);
+    const streetCoordsStr = JSON.stringify(coords);
     await prisma.roadIncident.create({
-      data: inc,
+      data: {
+        category: inc.category,
+        riskScore: inc.riskScore,
+        riskLevel: inc.riskLevel,
+        latitude: inc.latitude,
+        longitude: inc.longitude,
+        locationName: inc.locationName,
+        description: inc.description,
+        recommendation: inc.recommendation,
+        status: inc.status,
+        streetCoords: streetCoordsStr,
+        geom: streetCoordsStr
+      },
     });
   }
   console.log("Incidents seeded successfully.");

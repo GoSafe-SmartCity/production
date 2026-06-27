@@ -63,6 +63,7 @@ export function GoongMapInline({
     const [adminMap, setAdminMap] = useState<any>(null);
     const markersRef = useRef<any[]>([]);
     const popupRef = useRef<any>(null);
+    const dbBlockedLayersRef = useRef<string[]>([]);
 
     // Check if goong-js script is already loaded
     useEffect(() => {
@@ -138,6 +139,12 @@ export function GoongMapInline({
                 if (adminMap.getSource(sourceId)) adminMap.removeSource(sourceId);
                 if (adminMap.getLayer(altLayerId)) adminMap.removeLayer(altLayerId);
                 if (adminMap.getSource(altSourceId)) adminMap.removeSource(altSourceId);
+                
+                dbBlockedLayersRef.current.forEach(id => {
+                    if (adminMap.getLayer(id)) adminMap.removeLayer(id);
+                    if (adminMap.getSource(id)) adminMap.removeSource(id);
+                });
+                dbBlockedLayersRef.current = [];
             }
         } catch (e) { /* ignore */ }
 
@@ -183,7 +190,7 @@ export function GoongMapInline({
                 .setHTML(`
                     <div class="flex items-center p-0.5 font-bold">
                         <span class="font-extrabold text-[11px] text-neutral-900 tracking-normal leading-relaxed">
-                            🔴 Road segment is currently <span class="text-red-500 font-black">blocked / flooded</span>
+                            Road segment is currently <span class="text-red-500 font-black">blocked / flooded</span>
                         </span>
                     </div>
                 `)
@@ -195,38 +202,7 @@ export function GoongMapInline({
             }
         }
 
-        // ═══════════════════════════════════════
-        // 2. SAFE DETOUR ROAD LINE (GREEN)
-        // ═══════════════════════════════════════
-        if (showDecision && alternativeStreetCoords && alternativeStreetCoords.length > 1) {
-            try {
-                adminMap.addSource(altSourceId, {
-                    type: "geojson",
-                    data: {
-                        type: "Feature",
-                        properties: {},
-                        geometry: {
-                            type: "LineString",
-                            coordinates: alternativeStreetCoords
-                        }
-                    }
-                });
 
-                adminMap.addLayer({
-                    id: altLayerId,
-                    type: "line",
-                    source: altSourceId,
-                    layout: { "line-join": "round", "line-cap": "round" },
-                    paint: {
-                        "line-color": "#00a850",
-                        "line-width": 12,
-                        "line-opacity": 0.85
-                    }
-                });
-            } catch (e) {
-                console.warn("Failed to draw detour street layer: ", e);
-            }
-        }
 
         // ═══════════════════════════════════════
         // 3. ACTIVE HAZARDS FROM DATABASE
@@ -237,6 +213,45 @@ export function GoongMapInline({
                     let color = "#ef4444"; // Red for high-risk/flooded active
                     if (hazard.riskLevel === "MEDIUM") color = "#f97316";
                     else if (hazard.riskLevel === "LOW") color = "#3b82f6";
+
+                    // Draw the blocked line segment if streetCoords exists
+                    if (hazard.streetCoords) {
+                        try {
+                            const coords = JSON.parse(hazard.streetCoords);
+                            const srcId = `admin-db-blocked-src-${hazard.id}`;
+                            const lyrId = `admin-db-blocked-lyr-${hazard.id}`;
+                            
+                            if (!adminMap.getSource(srcId)) {
+                                adminMap.addSource(srcId, {
+                                    type: "geojson",
+                                    data: {
+                                        type: "Feature",
+                                        properties: {},
+                                        geometry: {
+                                            type: "LineString",
+                                            coordinates: coords
+                                        }
+                                    }
+                                });
+
+                                adminMap.addLayer({
+                                    id: lyrId,
+                                    type: "line",
+                                    source: srcId,
+                                    layout: { "line-join": "round", "line-cap": "round" },
+                                    paint: {
+                                        "line-color": "#ef4444",
+                                        "line-width": 8,
+                                        "line-opacity": 0.75
+                                    }
+                                });
+
+                                dbBlockedLayersRef.current.push(lyrId);
+                            }
+                        } catch (e) {
+                            console.error("Failed to parse admin hazard streetCoords:", e);
+                        }
+                    }
 
                     const el = document.createElement("div");
                     el.style.cursor = "pointer";

@@ -8,7 +8,8 @@ import Script from "next/script";
 import {
   MapPin, AlertTriangle, Navigation, Award, Sliders, User,
   Calendar, Users, CheckCircle, XCircle, Plus, Loader2,
-  Upload, Info, Bell, Shield, ArrowDown, Map, Compass, HardHat, Eye, Brain, ThumbsUp, ThumbsDown
+  Upload, Info, Bell, Shield, ArrowDown, Map, Compass, HardHat, Eye, Brain, ThumbsUp, ThumbsDown,
+  School, Building
 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -82,7 +83,10 @@ export default function HomePage() {
   // Fallback: coordinates of Marie Curie street
   const [floodedStreetCoords, setFloodedStreetCoords] = useState<[number, number][]>([]);
   const [alternativeStreetCoords, setAlternativeStreetCoords] = useState<[number, number][]>([]);
+  const [activeBlockingIncident, setActiveBlockingIncident] = useState<any | null>(null);
+  const [pointsAwarded, setPointsAwarded] = useState<number | null>(null);
   const dbBlockedLayersRef = useRef<string[]>([]);
+  const dbBlockedPopupsRef = useRef<any[]>([]);
 
   // Decode Goong polyline helper
   const decodePolyline = useCallback((encoded: string) => {
@@ -261,7 +265,15 @@ export default function HomePage() {
   }, [map, mapHero, userCoords]);
 
   // Draw flooded street & safe alternative path section on map
-  const drawFloodedStreet = useCallback((mapInstance: any, primaryCoords: [number, number][], altCoords: [number, number][], currentNavStep: string, tab: string, incidentsList: any[] = []) => {
+  const drawFloodedStreet = useCallback((
+    mapInstance: any,
+    primaryCoords: [number, number][],
+    altCoords: [number, number][],
+    currentNavStep: string,
+    tab: string,
+    incidentsList: any[] = [],
+    activeIncident: any = null
+  ) => {
     if (!mapInstance) return;
 
     const sourceId = "flooded-street-source";
@@ -286,6 +298,11 @@ export default function HomePage() {
         if (mapInstance.getSource(id)) mapInstance.removeSource(id);
       });
       dbBlockedLayersRef.current = [];
+
+      dbBlockedPopupsRef.current.forEach(p => {
+        try { p.remove(); } catch (e) {}
+      });
+      dbBlockedPopupsRef.current = [];
 
       // 2. Clean up previous markers & animations
       if (floodPopupRef.current) {
@@ -324,48 +341,79 @@ export default function HomePage() {
       const goongjs = window.goongjs;
       if (!goongjs) return;
 
-      if (altCoords.length === 0) return;
-
-      // Draw all active database incidents' blocked road segments in red on Map tab
+      // Draw all active database incidents' blocked road segments in red on Map tab (drawn initially)
       if (tab === "navigation") {
         incidentsList.forEach(inc => {
-          if ((inc.status === "ACTIVE" || inc.status === "APPROVED") && inc.streetCoords) {
+          if (inc.status === "ACTIVE" || inc.status === "APPROVED") {
             try {
-              const coords = JSON.parse(inc.streetCoords);
-              const srcId = `db-blocked-src-${inc.id}`;
-              const lyrId = `db-blocked-lyr-${inc.id}`;
-              
-              if (mapInstance.getSource(srcId)) return;
+              let midCoord = [inc.longitude, inc.latitude];
+              if (inc.streetCoords) {
+                const coords = JSON.parse(inc.streetCoords);
+                const srcId = `db-blocked-src-${inc.id}`;
+                const lyrId = `db-blocked-lyr-${inc.id}`;
+                
+                if (!mapInstance.getSource(srcId)) {
+                  mapInstance.addSource(srcId, {
+                    type: "geojson",
+                    data: {
+                      type: "Feature",
+                      properties: {},
+                      geometry: {
+                        type: "LineString",
+                        coordinates: coords
+                      }
+                    }
+                  });
 
-              mapInstance.addSource(srcId, {
-                type: "geojson",
-                data: {
-                  type: "Feature",
-                  properties: {},
-                  geometry: {
-                    type: "LineString",
-                    coordinates: coords
-                  }
+                  mapInstance.addLayer({
+                    id: lyrId,
+                    type: "line",
+                    source: srcId,
+                    layout: { "line-join": "round", "line-cap": "round" },
+                    paint: {
+                      "line-color": "#ef4444",
+                      "line-width": 8,
+                      "line-opacity": 0.75
+                    }
+                  });
+
+                  dbBlockedLayersRef.current.push(lyrId);
                 }
-              });
+                const midIdx = Math.floor(coords.length / 2);
+                midCoord = coords[midIdx] || midCoord;
+              }
 
-              mapInstance.addLayer({
-                id: lyrId,
-                type: "line",
-                source: srcId,
-                layout: { "line-join": "round", "line-cap": "round" },
-                paint: {
-                  "line-color": "#ef4444",
-                  "line-width": 8,
-                  "line-opacity": 0.75
-                }
-              });
+              // Add warning popup immediately on map load ONLY for CNSH
+              let roadName = "";
+              const name = inc.locationName || "";
+              if (name.includes("Khu thực hành CNSH") || name.includes("CNSH")) {
+                roadName = "Khu thực hành CNSH";
+              }
 
-              dbBlockedLayersRef.current.push(lyrId);
+              if (roadName) {
+                const popup = new goongjs.Popup({
+                  closeButton: false,
+                  closeOnClick: false,
+                  className: "custom-popup"
+                })
+                  .setLngLat(midCoord)
+                  .setHTML(`
+                    <div class="flex items-center p-1.5 font-bold">
+                      <span class="font-extrabold text-sm sm:text-base md:text-lg text-neutral-900 dark:text-neutral-100 tracking-normal leading-relaxed font-Outfit">
+                        The road <span class="text-red-500 font-black">${roadName}</span> is flooded in <span class="text-yellow-600 dark:text-yellow-400 font-black font-semibold">15 minutes</span>
+                      </span>
+                    </div>
+                  `)
+                  .addTo(mapInstance);
+
+                dbBlockedPopupsRef.current.push(popup);
+              }
             } catch (e) {}
           }
         });
       }
+
+      if (altCoords.length === 0) return;
 
       // 3. Add Primary Flooded Route (Red line, width 12) - Only if blocked coords exist
       if (primaryCoords.length > 1) {
@@ -397,29 +445,33 @@ export default function HomePage() {
         const midIdx = Math.floor(primaryCoords.length / 2);
         const midCoord = primaryCoords[midIdx] || [106.8005, 10.8778];
 
+        let roadName = "Marie Curie St.";
+        if (activeIncident) {
+          const name = activeIncident.locationName || "";
+          if (name.includes("Marie Curie")) {
+            roadName = "Marie Curie St.";
+          } else if (name.includes("William Shakespeare")) {
+            roadName = "William Shakespeare St.";
+          } else if (name.includes("Khu thực hành CNSH") || name.includes("CNSH")) {
+            roadName = "Khu thực hành CNSH";
+          } else {
+            roadName = name.split(",")[0] || "Marie Curie St.";
+          }
+        }
+
         const popup = new goongjs.Popup({
           closeButton: false,
           closeOnClick: false,
           className: "custom-popup"
         })
           .setLngLat(midCoord)
-          .setHTML(
-            tab === "home"
-              ? `
-                <div class="flex items-center p-0.5 font-bold">
-                  <span class="font-extrabold text-sm sm:text-base md:text-lg text-neutral-900 dark:text-neutral-100 tracking-normal leading-relaxed font-inter">
-                    Đoạn đường <span class="text-red-500 font-black">Marie Curie</span> sắp ngập trong <span class="text-yellow-600 dark:text-yellow-400 font-black font-semibold">10 phút</span> tới
-                  </span>
-                </div>
-              `
-              : `
-                <div class="flex items-center p-0.5 font-bold">
-                  <span class="font-extrabold text-xs text-neutral-900 dark:text-neutral-100 tracking-normal leading-relaxed">
-                    🔴 Road blocked. GoSafe automated detour routing active.
-                  </span>
-                </div>
-              `
-          )
+          .setHTML(`
+            <div class="flex items-center p-1.5 font-bold">
+              <span class="font-extrabold text-sm sm:text-base md:text-lg text-neutral-900 dark:text-neutral-100 tracking-normal leading-relaxed font-Outfit">
+                The road <span class="text-red-500 font-black">${roadName}</span> is flooded in <span class="text-yellow-600 dark:text-yellow-400 font-black font-semibold">15 minutes</span>
+              </span>
+            </div>
+          `)
           .addTo(mapInstance);
 
         floodPopupRef.current = popup;
@@ -547,19 +599,8 @@ export default function HomePage() {
         .addTo(mapInstance);
       animatedDotRef.current = travelerMarker;
 
-      const markerContainer = travelerMarker.getElement();
-      if (markerContainer) {
-        markerContainer.style.transition = "transform 0.24s linear";
-      }
-
-      const handleMoveStart = () => {
-        const el = travelerMarker.getElement();
-        if (el) el.style.transition = "none";
-      };
-      const handleMoveEnd = () => {
-        const el = travelerMarker.getElement();
-        if (el) el.style.transition = "transform 0.24s linear";
-      };
+      const handleMoveStart = () => {};
+      const handleMoveEnd = () => {};
 
       mapInstance.on("movestart", handleMoveStart);
       mapInstance.on("moveend", handleMoveEnd);
@@ -649,14 +690,14 @@ export default function HomePage() {
   useEffect(() => {
     if (map && activeTab === "navigation") {
       if (map.isStyleLoaded()) {
-        drawFloodedStreet(map, floodedStreetCoords, alternativeStreetCoords, navStep, activeTab, incidents);
+        drawFloodedStreet(map, floodedStreetCoords, alternativeStreetCoords, navStep, activeTab, incidents, activeBlockingIncident);
       } else {
         map.once("style.load", () => {
-          drawFloodedStreet(map, floodedStreetCoords, alternativeStreetCoords, navStep, activeTab, incidents);
+          drawFloodedStreet(map, floodedStreetCoords, alternativeStreetCoords, navStep, activeTab, incidents, activeBlockingIncident);
         });
       }
     }
-  }, [map, floodedStreetCoords, alternativeStreetCoords, navStep, activeTab, incidents, drawFloodedStreet]);
+  }, [map, floodedStreetCoords, alternativeStreetCoords, navStep, activeTab, incidents, activeBlockingIncident, drawFloodedStreet]);
 
   // Report Modal States
   const [isReportOpen, setIsReportOpen] = useState(false);
@@ -945,9 +986,9 @@ export default function HomePage() {
         else if (inc.riskLevel === "LOW") color = "#3b82f6";
 
         const el = document.createElement("div");
-        el.className = "cursor-pointer hover:scale-110 transition-transform";
+        el.className = "cursor-pointer";
         el.innerHTML = `
-          <div style="width:34px;height:34px;border-radius:50%;background:white;border:3px solid ${color};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,0.25);">
+          <div style="width:34px;height:34px;border-radius:50%;background:white;border:3px solid ${color};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,0.25);transition:transform 0.15s ease;" class="hover:scale-110">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           </div>
         `;
@@ -1114,17 +1155,260 @@ export default function HomePage() {
         return R * c;
       }
 
-      if (isBlocked && data.routes.length > 1) {
-        const altRoute = data.routes[1];
-        const polyline1 = altRoute.overview_polyline?.points;
-        if (polyline1) {
-          const altPoints = decodePolyline(polyline1);
-          setFloodedStreetCoords(primaryPoints);
-          setAlternativeStreetCoords(altPoints);
-          setNavPoints(altPoints.map(p => ({ lat: p[1], lng: p[0] })));
-          toast.warning(`Phát hiện sự cố ngập úng trên đường đi. Đã thiết lập lộ trình tránh!`);
+      const checkPathBlocked = (pathPoints: [number, number][]) => {
+        for (const incident of incidents) {
+          if (incident.status === "ACTIVE" || incident.status === "APPROVED") {
+            if (incident.streetCoords) {
+              try {
+                const blockedCoords: [number, number][] = JSON.parse(incident.streetCoords);
+                for (const pt of pathPoints) {
+                  for (const bPt of blockedCoords) {
+                    const dist = getDistance(pt[1], pt[0], bPt[1], bPt[0]);
+                    if (dist < 0.08) return true; // 80 meters overlap threshold
+                  }
+                }
+              } catch (e) {}
+            }
+          }
+        }
+        return false;
+      };
+
+      const useAlternativeFallback = () => {
+        let blockCoords = primaryPoints;
+        if (blockingIncident && blockingIncident.streetCoords) {
+          try {
+            blockCoords = JSON.parse(blockingIncident.streetCoords);
+          } catch (e) {}
+        }
+        setActiveBlockingIncident(blockingIncident);
+
+        if (data.routes.length > 1) {
+          const altRoute = data.routes[1];
+          const polyline1 = altRoute.overview_polyline?.points;
+          if (polyline1) {
+            const altPoints = decodePolyline(polyline1);
+            setFloodedStreetCoords(blockCoords);
+            setAlternativeStreetCoords(altPoints);
+            setNavPoints(altPoints.map(p => ({ lat: p[1], lng: p[0] })));
+            toast.warning("Warning: Flooded street detected! GoSafe has routed a safe detour for you.");
+            return;
+          }
+        }
+        setFloodedStreetCoords(blockCoords);
+        setAlternativeStreetCoords(primaryPoints);
+        setNavPoints(primaryPoints.map(p => ({ lat: p[1], lng: p[0] })));
+      };
+
+      // 1. Loop through all routes from Goong to find the first one that is NOT blocked
+      let safeRoute = null;
+      if (isBlocked) {
+        for (const route of data.routes) {
+          if (route === primaryRoute) continue; // Skip primary blocked route
+          const pts = decodePolyline(route.overview_polyline.points);
+          if (!checkPathBlocked(pts)) {
+            safeRoute = route;
+            break;
+          }
+        }
+      }
+
+      if (isBlocked && safeRoute) {
+        setActiveBlockingIncident(blockingIncident);
+        const safePoints = decodePolyline(safeRoute.overview_polyline.points);
+        let blockCoords = primaryPoints;
+        if (blockingIncident && blockingIncident.streetCoords) {
+          try {
+            blockCoords = JSON.parse(blockingIncident.streetCoords);
+          } catch (e) {}
+        }
+        setFloodedStreetCoords(blockCoords);
+        setAlternativeStreetCoords(safePoints);
+        setNavPoints(safePoints.map(p => ({ lat: p[1], lng: p[0] })));
+        toast.warning("Warning: Flooded street detected! GoSafe has routed a safe detour for you.");
+      } else if (isBlocked && blockingIncident) {
+        setActiveBlockingIncident(blockingIncident);
+
+        // Dijkstra Graph for Marie Curie campus area detour routing
+        interface GraphNode {
+          id: string;
+          lat: number;
+          lng: number;
+        }
+
+        const campusNodes: GraphNode[] = [
+          { id: "A", lat: 10.87837, lng: 106.79613 }, // Marie Curie West
+          { id: "B", lat: 10.87920, lng: 106.79919 }, // Marie Curie Middle-West
+          { id: "C", lat: 10.87892, lng: 106.80041 }, // Marie Curie Middle-East
+          { id: "D", lat: 10.87833, lng: 106.80131 }, // Marie Curie East (CNSH Junction)
+          { id: "E", lat: 10.87780, lng: 106.80210 }, // Guest House / CNSH East
+          { id: "F", lat: 10.88050, lng: 106.79900 }, // Ring Road North-West
+          { id: "G", lat: 10.88120, lng: 106.80050 }, // Ring Road North-Middle
+          { id: "H", lat: 10.88090, lng: 106.80190 }, // Ring Road North-East
+        ];
+
+        const campusEdges: { from: string; to: string }[] = [
+          { from: "A", to: "B" },
+          { from: "B", to: "C" },
+          { from: "C", to: "D" },
+          { from: "D", to: "E" },
+          { from: "B", to: "F" },
+          { from: "F", to: "G" },
+          { from: "G", to: "H" },
+          { from: "H", to: "D" },
+          { from: "H", to: "E" },
+        ];
+
+        // Identify the blocked edges in the graph
+        const blockedEdgeKeys = new Set<string>();
+        for (const inc of incidents) {
+          if (inc.status === "ACTIVE" || inc.status === "APPROVED") {
+            let closestEdgeKey = "";
+            let minDistance = Infinity;
+
+            for (const edge of campusEdges) {
+              const fromNode = campusNodes.find(n => n.id === edge.from)!;
+              const toNode = campusNodes.find(n => n.id === edge.to)!;
+              const midLat = (fromNode.lat + toNode.lat) / 2;
+              const midLng = (fromNode.lng + toNode.lng) / 2;
+
+              const dist = getDistance(inc.latitude, inc.longitude, midLat, midLng);
+              if (dist < minDistance) {
+                minDistance = dist;
+                closestEdgeKey = [edge.from, edge.to].sort().join("-");
+              }
+            }
+
+            if (minDistance < 0.4) { // within 400m of edge midpoint
+              blockedEdgeKeys.add(closestEdgeKey);
+            }
+          }
+        }
+
+        // Map start and destination to closest nodes
+        let startNodeId = "A";
+        let minStartDist = Infinity;
+        for (const n of campusNodes) {
+          const dist = getDistance(startCoords.lat, startCoords.lng, n.lat, n.lng);
+          if (dist < minStartDist) {
+            minStartDist = dist;
+            startNodeId = n.id;
+          }
+        }
+
+        let destNodeId = "E";
+        let minDestDist = Infinity;
+        for (const n of campusNodes) {
+          const dist = getDistance(destCoords ? destCoords.lat : 10.8778, destCoords ? destCoords.lng : 106.8005, n.lat, n.lng);
+          if (dist < minDestDist) {
+            minDestDist = dist;
+            destNodeId = n.id;
+          }
+        }
+
+        // Run Dijkstra
+        const dists: Record<string, number> = {};
+        const prev: Record<string, string | null> = {};
+        const queue = new Set<string>();
+
+        for (const n of campusNodes) {
+          dists[n.id] = Infinity;
+          prev[n.id] = null;
+          queue.add(n.id);
+        }
+        dists[startNodeId] = 0;
+
+        while (queue.size > 0) {
+          let u: string | null = null;
+          let minDist = Infinity;
+          for (const nodeKey of queue) {
+            if (dists[nodeKey] < minDist) {
+              minDist = dists[nodeKey];
+              u = nodeKey;
+            }
+          }
+
+          if (u === null || u === destNodeId) break;
+          queue.delete(u);
+
+          const uNode = campusNodes.find(n => n.id === u);
+          if (!uNode) continue;
+
+          for (const edge of campusEdges) {
+            let neighborId: string | null = null;
+            if (edge.from === u) neighborId = edge.to;
+            else if (edge.to === u) neighborId = edge.from;
+
+            if (neighborId && queue.has(neighborId)) {
+              const edgeKey = [u, neighborId].sort().join("-");
+              if (blockedEdgeKeys.has(edgeKey)) continue;
+
+              const nNode = campusNodes.find(n => n.id === neighborId)!;
+              const weight = getDistance(uNode.lat, uNode.lng, nNode.lat, nNode.lng);
+              const alt = dists[u] + weight;
+              if (alt < dists[neighborId]) {
+                dists[neighborId] = alt;
+                prev[neighborId] = u;
+              }
+            }
+          }
+        }
+
+        const path: string[] = [];
+        let curr: string | null = destNodeId;
+        while (curr !== null) {
+          path.unshift(curr);
+          curr = prev[curr];
+        }
+
+        const finalPath = path[0] === startNodeId ? path : [];
+
+        if (finalPath.length >= 2) {
+          (async () => {
+            try {
+              const pathNodes = finalPath.map(id => campusNodes.find(n => n.id === id)!);
+              const routePoints = [startCoords, ...pathNodes, destCoords || { lat: 10.8778, lng: 106.8005 }];
+              const segments: [number, number][][] = [];
+
+              for (let i = 0; i < routePoints.length - 1; i++) {
+                const originStr = `${routePoints[i].lat},${routePoints[i].lng}`;
+                const destStr = `${routePoints[i+1].lat},${routePoints[i+1].lng}`;
+                const segmentRes = await fetch(
+                  `https://rsapi.goong.io/direction?origin=${originStr}&destination=${destStr}&vehicle=bike&api_key=${apiKey}`
+                );
+                if (segmentRes.ok) {
+                  const segData = await segmentRes.json();
+                  if (segData.routes?.[0]?.overview_polyline?.points) {
+                    const segPts = decodePolyline(segData.routes[0].overview_polyline.points);
+                    segments.push(segPts);
+                  }
+                }
+              }
+
+              const detourPoints = segments.flat();
+              if (detourPoints.length > 0 && !checkPathBlocked(detourPoints)) {
+                let blockCoords = primaryPoints;
+                if (blockingIncident && blockingIncident.streetCoords) {
+                  try {
+                    blockCoords = JSON.parse(blockingIncident.streetCoords);
+                  } catch (e) {}
+                }
+                setFloodedStreetCoords(blockCoords);
+                setAlternativeStreetCoords(detourPoints);
+                setNavPoints(detourPoints.map(p => ({ lat: p[1], lng: p[0] })));
+                toast.warning("Warning: Flooded street detected! GoSafe has routed a safe detour for you.");
+              } else {
+                useAlternativeFallback();
+              }
+            } catch (e) {
+              useAlternativeFallback();
+            }
+          })();
+        } else {
+          useAlternativeFallback();
         }
       } else {
+        setActiveBlockingIncident(null);
         setFloodedStreetCoords([]);
         setAlternativeStreetCoords(primaryPoints);
         setNavPoints(primaryPoints.map(p => ({ lat: p[1], lng: p[0] })));
@@ -1192,11 +1476,10 @@ export default function HomePage() {
 
       if (res.ok) {
         const data = await res.json();
-        toast.success(`Đã đến điểm hẹn! Nhận được +${data.pointsAwarded} điểm GoSafe.`);
+        setPointsAwarded(data.pointsAwarded || 5);
         setNavStep("idle");
         setIsNavigating(false);
         setNavSessionId(null);
-        setIsFeedbackOpen(false);
         fetchUserProfile();
 
         // Reset camera to default center/tilt
@@ -1435,7 +1718,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen relative flex flex-col overflow-x-hidden text-foreground font-normal pb-24 md:pb-0 bg-background">
-      <Toaster position="top-center" richColors />
 
       {/* Background Grid */}
       {activeTab === "home" && (
@@ -1652,9 +1934,9 @@ export default function HomePage() {
                           setStartCoords({ lat: 10.8782, lng: 106.8008 });
                           setStartQuery("Marie Curie, Đông Hòa");
                         }}
-                        className="px-2 py-1 bg-muted/40 border border-border/50 text-[9px] font-bold rounded-lg hover:bg-muted/70 transition-colors cursor-pointer text-foreground"
+                        className="px-2 py-1 bg-muted/40 border border-border/50 text-[9px] font-bold rounded-lg hover:bg-muted/70 transition-colors cursor-pointer text-foreground flex items-center gap-1"
                       >
-                        🏫 Marie Curie
+                        <School className="w-2.5 h-2.5 text-primary" /> Marie Curie
                       </button>
                       <button
                         type="button"
@@ -1663,9 +1945,9 @@ export default function HomePage() {
                           setStartCoords({ lat: 10.8825, lng: 106.8068 });
                           setStartQuery("Ký túc xá Khu B ĐHQG");
                         }}
-                        className="px-2 py-1 bg-muted/40 border border-border/50 text-[9px] font-bold rounded-lg hover:bg-muted/70 transition-colors cursor-pointer text-foreground"
+                        className="px-2 py-1 bg-muted/40 border border-border/50 text-[9px] font-bold rounded-lg hover:bg-muted/70 transition-colors cursor-pointer text-foreground flex items-center gap-1"
                       >
-                        🏢 KTX Khu B ĐHQG
+                        <Building className="w-2.5 h-2.5 text-primary" /> KTX Khu B ĐHQG
                       </button>
                     </div>
                   </div>
@@ -1701,13 +1983,35 @@ export default function HomePage() {
 
                   {/* Desktop Only Actions Panel */}
                   <div className="hidden md:flex flex-col gap-3 mt-2">
-                    <Button
-                      onClick={handleStartNavigation}
-                      disabled={isNavigating}
-                      className="h-10 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold border-0 text-xs w-full cursor-pointer"
-                    >
-                      {isNavigating ? "Đang thiết lập lộ trình..." : "Tìm đường đi tối ưu"}
-                    </Button>
+                    {navStep === "idle" ? (
+                      <Button
+                        onClick={handleStartNavigation}
+                        className="h-10 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold border-0 text-xs w-full cursor-pointer"
+                      >
+                        Tìm đường đi tối ưu
+                      </Button>
+                    ) : navStep === "routing" ? (
+                      <Button
+                        onClick={triggerNavStart}
+                        className="h-10 rounded-2xl bg-green-600 hover:bg-green-700 text-white font-bold border-0 text-xs w-full cursor-pointer animate-pulse"
+                      >
+                        Bắt đầu đi
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={() => {
+                          setNavStep("idle");
+                          setIsNavigating(false);
+                          if (map && map.getLayer("route-layer")) {
+                            map.removeLayer("route-layer");
+                            map.removeSource("route-source");
+                          }
+                        }}
+                        className="h-10 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold border-0 text-xs w-full cursor-pointer"
+                      >
+                        Hủy điều hướng
+                      </Button>
+                    )}
 
                     <Button
                       onClick={() => {
@@ -1720,11 +2024,11 @@ export default function HomePage() {
                       variant="outline"
                       className="h-10 rounded-2xl border-border bg-background hover:bg-accent text-foreground font-bold text-xs w-full flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      🚩 Báo cáo sự cố khẩn cấp
+                      <AlertTriangle className="w-4 h-4 text-red-500" /> Báo cáo sự cố khẩn cấp
                     </Button>
 
                     {isNavigating && floodedStreetCoords.length > 0 && (
-                      <div className="flex flex-col gap-2.5 p-4 rounded-2xl bg-orange-500/10 text-orange-600 border border-orange-500/20 font-bold leading-relaxed">
+                      <div className="flex flex-col gap-2.5 p-4 rounded-2xl bg-orange-500/10 text-orange-650 border border-orange-500/20 font-bold leading-relaxed">
                         <div className="flex items-center gap-1.5">
                           <AlertTriangle className="w-4 h-4 text-orange-500 animate-bounce" />
                           <span>Phát hiện vùng ngập chắn lối</span>
@@ -1737,13 +2041,35 @@ export default function HomePage() {
 
                 {/* 2. BOTTOM ACTION PANEL (Mobile: fixed bottom above rounded navigation bar, Desktop: hidden) */}
                 <div className="fixed bottom-26 left-4 right-4 z-40 bg-background/95 backdrop-blur-md border border-border p-4 flex flex-col gap-2 shadow-xl rounded-2xl md:hidden">
-                  <Button
-                    onClick={handleStartNavigation}
-                    disabled={isNavigating}
-                    className="h-11 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold border-0 text-xs w-full cursor-pointer"
-                  >
-                    {isNavigating ? "Đang thiết lập lộ trình..." : "Tìm đường đi tối ưu"}
-                  </Button>
+                  {navStep === "idle" ? (
+                    <Button
+                      onClick={handleStartNavigation}
+                      className="h-11 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold border-0 text-xs w-full cursor-pointer"
+                    >
+                      Tìm đường đi tối ưu
+                    </Button>
+                  ) : navStep === "routing" ? (
+                    <Button
+                      onClick={triggerNavStart}
+                      className="h-11 rounded-2xl bg-green-600 hover:bg-green-700 text-white font-bold border-0 text-xs w-full cursor-pointer"
+                    >
+                      Bắt đầu đi
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => {
+                        setNavStep("idle");
+                        setIsNavigating(false);
+                        if (map && map.getLayer("route-layer")) {
+                          map.removeLayer("route-layer");
+                          map.removeSource("route-source");
+                        }
+                      }}
+                      className="h-11 rounded-2xl bg-red-650 hover:bg-red-600 text-white font-bold border-0 text-xs w-full cursor-pointer"
+                    >
+                      Hủy điều hướng
+                    </Button>
+                  )}
 
                   <Button
                     onClick={() => {
@@ -1756,27 +2082,17 @@ export default function HomePage() {
                     variant="outline"
                     className="h-10 rounded-2xl border-border bg-background hover:bg-accent text-foreground font-bold text-xs w-full flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    🚩 Báo cáo sự cố khẩn cấp
+                    <AlertTriangle className="w-4 h-4 text-red-500" /> Báo cáo sự cố khẩn cấp
                   </Button>
-
-                  {isNavigating && floodedStreetCoords.length > 0 && (
-                    <div className="flex flex-col gap-2 p-3 rounded-2xl bg-orange-500/10 text-orange-600 border border-orange-500/20 font-bold leading-relaxed">
-                      <div className="flex items-center gap-1.5">
-                        <AlertTriangle className="w-4 h-4 text-orange-500 animate-bounce" />
-                        <span>Phát hiện vùng ngập chắn lối</span>
-                      </div>
-                      <p className="text-[9px] font-semibold text-foreground leading-normal">GoSafe tự động đề xuất vòng qua để tránh vùng ngập sâu nguy hiểm.</p>
-                    </div>
-                  )}
                 </div>
               </>
             )}
 
             {/* Navigation simulation Guidance Widget */}
-            {navStep !== "idle" && (
+            {navStep === "active" && (
               <div className="absolute top-3 right-3 z-40 p-3 rounded-2xl bg-background border border-border shadow-2xl w-[250px] text-[10px] flex flex-col gap-2 border-border/50">
                 <div className="flex items-center justify-between font-bold">
-                  <span className="flex items-center gap-1"><Navigation className="w-3.5 h-3.5 text-primary animate-pulse" /> Detour Guidance</span>
+                  <span className="flex items-center gap-1"><Navigation className="w-3.5 h-3.5 text-primary animate-pulse" /> Đang điều hướng</span>
                   <Button variant="ghost" size="icon" onClick={() => {
                     setNavStep("idle");
                     if (map && map.getLayer("route-layer")) {
@@ -1785,25 +2101,12 @@ export default function HomePage() {
                     }
                   }} className="h-5 w-5 rounded-full cursor-pointer"><XCircle className="w-3 h-3" /></Button>
                 </div>
-                {navStep === "routing" ? (
-                  <>
-                    <p className="text-orange-650 bg-orange-500/10 p-2 rounded-xl font-bold border border-orange-500/20">
-                      Rerouting calculated successfully.
-                    </p>
-                    <Button onClick={triggerNavStart} className="w-full h-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[10px] border-0 cursor-pointer">
-                      Chấp nhận và Bắt đầu đi
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-green-600 bg-green-500/10 p-2 rounded-xl font-bold border border-green-500/20">
-                      Active guidance. First-person view tracking.
-                    </p>
-                    <Button onClick={() => setIsFeedbackOpen(true)} className="w-full h-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[10px] border-0 cursor-pointer">
-                      Đã đến điểm hẹn (+5 pts)
-                    </Button>
-                  </>
-                )}
+                <p className="text-green-600 bg-green-500/10 p-2 rounded-xl font-bold border border-green-500/20">
+                  Đang theo dõi lộ trình tối ưu tránh ngập.
+                </p>
+                <Button onClick={() => setIsFeedbackOpen(true)} className="w-full h-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[10px] border-0 cursor-pointer">
+                  Đã đến điểm hẹn (+5 pts)
+                </Button>
               </div>
             )}
 
@@ -1857,7 +2160,6 @@ export default function HomePage() {
                     return;
                   }
                   setActiveTab("navigation");
-                  handleStartNavigation();
                 }} disabled={isNavigating} className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg flex items-center justify-center border-0 hover:scale-105 transition-transform cursor-pointer">
                   <Navigation className="w-4.5 h-4.5" />
                 </Button>
@@ -1894,42 +2196,94 @@ export default function HomePage() {
       {activeTab === "home" && (
         <ModulesSection />
       )}
-
+{/* Floating Report Hazard Dialog - Minimal Typing Form */}
       {/* Floating Report Hazard Dialog - Minimal Typing Form */}
       {isReportOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-background border border-border shadow-2xl rounded-3xl w-full max-w-md p-6 flex flex-col gap-4 text-xs border-border/50">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-sm flex items-center gap-1 font-Outfit">
-                Báo cáo Sự cố trên đường (+10 pts)
+                Report Road Incident (+10 pts)
               </h3>
               <Button variant="ghost" size="icon" onClick={() => setIsReportOpen(false)} className="h-8 w-8 rounded-full cursor-pointer"><XCircle className="w-5 h-5" /></Button>
             </div>
 
             <form onSubmit={handleReportSubmit} className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1">
-                <span className="font-bold text-foreground">Loại Sự cố</span>
-                <select value={reportCategory} onChange={(e) => setReportCategory(e.target.value)} className="p-3 border rounded-xl bg-background font-bold border-border/50 outline-none">
-                  <option value="FLOODING">🌊 Đường Ngập Nước</option>
-                  <option value="ACCIDENT">🚗 Tai nạn Giao thông</option>
-                  <option value="DEBRIS">🌲 Vật cản chắn đường</option>
-                  <option value="POTHOLES">🕳️ Hố sụt / Hỏng đường</option>
-                </select>
+              <div className="flex flex-col gap-1.5">
+                <span className="font-bold text-foreground mb-1">Incident Category</span>
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReportCategory("FLOODING");
+                      setReportDesc(""); // Clear on switch
+                    }}
+                    className={cn(
+                      "p-3 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all text-center cursor-pointer justify-between aspect-square",
+                      reportCategory === "FLOODING"
+                        ? "border-primary bg-primary/10 ring-2 ring-primary/20 font-black"
+                        : "border-border hover:bg-muted/30"
+                    )}
+                  >
+                    <div className="w-16 h-16 rounded-xl bg-[#3b82f6] p-1.5 flex items-center justify-center overflow-hidden shadow-md">
+                      <img src="/assets/flood.png" alt="Flooding" className="w-full h-full object-cover rounded-lg bg-white" />
+                    </div>
+                    <span className="text-[10px] font-bold text-foreground">Flooding</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReportCategory("ACCIDENT");
+                      setReportDesc(""); // Clear on switch
+                    }}
+                    className={cn(
+                      "p-3 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all text-center cursor-pointer justify-between aspect-square",
+                      reportCategory === "ACCIDENT"
+                        ? "border-primary bg-primary/10 ring-2 ring-primary/20 font-black"
+                        : "border-border hover:bg-muted/30"
+                    )}
+                  >
+                    <div className="w-16 h-16 rounded-xl bg-[#ef4444] p-1.5 flex items-center justify-center overflow-hidden shadow-md">
+                      <img src="/assets/accident.png" alt="Accident" className="w-full h-full object-cover rounded-lg bg-white" />
+                    </div>
+                    <span className="text-[10px] font-bold text-foreground">Accident</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReportCategory("DEBRIS");
+                      setReportDesc(""); // Clear on switch
+                    }}
+                    className={cn(
+                      "p-3 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all text-center cursor-pointer justify-between aspect-square",
+                      reportCategory === "DEBRIS"
+                        ? "border-primary bg-primary/10 ring-2 ring-primary/20 font-black"
+                        : "border-border hover:bg-muted/30"
+                    )}
+                  >
+                    <div className="w-16 h-16 rounded-xl bg-[#f59e0b] p-1.5 flex items-center justify-center overflow-hidden shadow-md">
+                      <img src="/assets/debris.png" alt="Debris" className="w-full h-full object-cover rounded-lg bg-white" />
+                    </div>
+                    <span className="text-[10px] font-bold text-foreground">Road Debris</span>
+                  </button>
+                </div>
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="font-bold text-foreground">Toạ độ Vị trí (Click chọn trên Bản đồ)</span>
+                <span className="font-bold text-foreground">Location Coordinates (Click on Map to select)</span>
                 <div className="p-3 border rounded-xl bg-muted/30 font-mono text-[9px] text-foreground font-bold border-border/50">
                   Lat: {reportLocation.lat.toFixed(6)}, Lng: {reportLocation.lng.toFixed(6)}
                 </div>
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="font-bold text-foreground">Ảnh thực tế đính kèm (Scrubbed PII)</span>
+                <span className="font-bold text-foreground">Attach Live Photo (Scrubbed PII)</span>
                 <div className="flex items-center gap-2">
                   <label className="flex-1 flex flex-col items-center justify-center p-2.5 border border-dashed rounded-xl cursor-pointer bg-muted/20 hover:bg-muted/30 border-border/50">
                     {uploading ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Upload className="w-4 h-4 text-foreground" />}
-                    <span className="text-[9px] text-foreground font-bold mt-1">Upload ảnh</span>
+                    <span className="text-[9px] text-foreground font-bold mt-1">Upload Photo</span>
                     <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                   </label>
                   {reportImage && (
@@ -1939,9 +2293,16 @@ export default function HomePage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <span className="font-bold text-foreground">Mô tả Nhanh (Click để chọn nhanh, không cần gõ)</span>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {["Ngập nặng (>30cm)", "Ngập vừa (10-30cm)", "Cây đổ chắn đường", "Tai nạn xe máy", "Hố ga hư hỏng"].map(opt => (
+                <span className="font-bold text-foreground">Incident Details (Optional)</span>
+                
+                {/* Category-Specific Choice Buttons */}
+                <div className="flex flex-wrap gap-1.5 mb-1.5">
+                  {(reportCategory === "FLOODING"
+                    ? ["Heavy flooding (>30cm)", "Moderate flooding (10-30cm)", "Minor water pooling"]
+                    : reportCategory === "ACCIDENT"
+                    ? ["Car collision", "Motorbike crash", "Multi-vehicle accident"]
+                    : ["Fallen tree branch", "Construction barrier", "Debris on road"]
+                  ).map(opt => (
                     <button
                       key={opt}
                       type="button"
@@ -1949,7 +2310,7 @@ export default function HomePage() {
                       className={cn(
                         "px-2.5 py-1.5 rounded-xl border text-[10px] font-bold transition-all bg-transparent cursor-pointer",
                         reportDesc === opt 
-                          ? "border-primary text-primary bg-primary/5" 
+                          ? "border-primary text-primary bg-primary/5 font-black" 
                           : "border-border text-muted-foreground hover:text-foreground"
                       )}
                     >
@@ -1957,9 +2318,16 @@ export default function HomePage() {
                     </button>
                   ))}
                 </div>
+
+                <textarea
+                  value={reportDesc}
+                  onChange={(e) => setReportDesc(e.target.value)}
+                  className="p-3 border rounded-xl bg-background border-border/50 text-xs font-semibold text-foreground outline-none focus:border-primary w-full h-16 resize-none"
+                  placeholder="Or provide custom details about the road blockage..."
+                />
               </div>
 
-              <Button type="submit" className="w-full rounded-xl py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs mt-1.5 border-0 cursor-pointer">Gửi báo cáo</Button>
+              <Button type="submit" className="w-full rounded-xl py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs mt-1.5 border-0 cursor-pointer">Submit Report</Button>
             </form>
           </div>
         </div>
@@ -1969,25 +2337,51 @@ export default function HomePage() {
       {isFeedbackOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-background border border-border shadow-2xl rounded-3xl w-full max-w-sm p-6 flex flex-col gap-4 text-xs text-center">
-            <h3 className="font-bold text-sm font-Outfit flex items-center justify-center gap-1.5"><CheckCircle className="w-5 h-5 text-green-500 animate-bounce" /> Lộ trình Hoàn tất!</h3>
-            <p className="text-muted-foreground font-semibold leading-relaxed">Bạn đánh giá thế nào về lộ trình định tuyến tránh ngập của GoSafe vừa rồi?</p>
-            
-            <div className="flex justify-around gap-4 my-2">
-              <Button 
-                onClick={() => handleArriveDestination(5, "Lộ trình tránh ngập rất an toàn và tốt")} 
-                className="flex-1 h-12 rounded-xl bg-green-500 hover:bg-green-600 text-white font-bold border-0 flex flex-col items-center justify-center gap-1 cursor-pointer"
-              >
-                <ThumbsUp className="w-4.5 h-4.5" />
-                <span>Rất tốt</span>
-              </Button>
-              <Button 
-                onClick={() => handleArriveDestination(1, "Vẫn bị ngập / Lộ trình kém")} 
-                className="flex-1 h-12 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold border-0 flex flex-col items-center justify-center gap-1 cursor-pointer"
-              >
-                <ThumbsDown className="w-4.5 h-4.5" />
-                <span>Không tốt</span>
-              </Button>
-            </div>
+            {pointsAwarded !== null ? (
+              <div className="flex flex-col gap-4 items-center justify-center py-4">
+                <div className="w-14 h-14 rounded-full bg-green-500/10 flex items-center justify-center">
+                  <Award className="w-8 h-8 text-green-500 animate-bounce" />
+                </div>
+                <h3 className="font-bold text-base font-Outfit">Trip Finished Successfully!</h3>
+                <div className="text-5xl font-black text-green-500 tracking-tight font-Outfit my-1">
+                  +{pointsAwarded} pts
+                </div>
+                <p className="text-muted-foreground font-semibold leading-relaxed px-2">
+                  Feedback received! Points successfully added to your account.
+                </p>
+                <Button 
+                  onClick={() => {
+                    setIsFeedbackOpen(false);
+                    setPointsAwarded(null);
+                  }}
+                  className="w-full h-10 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold border-0 mt-2 cursor-pointer"
+                >
+                  Got it!
+                </Button>
+              </div>
+            ) : (
+              <>
+                <h3 className="font-bold text-sm font-Outfit flex items-center justify-center gap-1.5"><CheckCircle className="w-5 h-5 text-green-500 animate-bounce" /> Route Completed!</h3>
+                <p className="text-muted-foreground font-semibold leading-relaxed">How would you rate the GoSafe flood-avoidance routing for this trip?</p>
+                
+                <div className="flex justify-around gap-4 my-2">
+                  <Button 
+                    onClick={() => handleArriveDestination(5, "Safe and clean flood detour route")} 
+                    className="flex-1 h-12 rounded-xl bg-green-500 hover:bg-green-600 text-white font-bold border-0 flex flex-col items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <ThumbsUp className="w-4.5 h-4.5" />
+                    <span>Excellent</span>
+                  </Button>
+                  <Button 
+                    onClick={() => handleArriveDestination(1, "Poor / Route still flooded")} 
+                    className="flex-1 h-12 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold border-0 flex flex-col items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <ThumbsDown className="w-4.5 h-4.5" />
+                    <span>Poor / Flooded</span>
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -2230,7 +2624,6 @@ export default function HomePage() {
                 return;
               }
               setActiveTab("navigation");
-              handleStartNavigation();
             }}
             className={cn(
               "relative px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-full text-[10px] md:text-xs font-bold flex flex-col md:flex-row items-center gap-1 md:gap-2 transition-colors border-0 bg-transparent cursor-pointer min-w-16 md:min-w-0",

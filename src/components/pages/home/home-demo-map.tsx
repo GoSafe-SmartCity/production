@@ -6,6 +6,60 @@ import Script from "next/script";
 export function HomeDemoMap() {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [map, setMap] = useState<any>(null);
+  const [showRoute, setShowRoute] = useState(false);
+  const [incidents, setIncidents] = useState<any[]>([]);
+
+  // Fetch active database incidents on mount
+  useEffect(() => {
+    fetch("/api/incidents")
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setIncidents(data);
+        }
+      })
+      .catch(err => console.error(err));
+  }, []);
+
+  // Draw all active database incidents' blocked road segments in red initially on Home map
+  useEffect(() => {
+    if (!map) return;
+    incidents.forEach(inc => {
+      if ((inc.status === "ACTIVE" || inc.status === "APPROVED") && inc.streetCoords) {
+        try {
+          const coords = JSON.parse(inc.streetCoords);
+          const srcId = `home-db-blocked-src-${inc.id}`;
+          const lyrId = `home-db-blocked-lyr-${inc.id}`;
+          
+          if (map.getSource(srcId)) return;
+
+          map.addSource(srcId, {
+            type: "geojson",
+            data: {
+              type: "Feature",
+              properties: {},
+              geometry: {
+                type: "LineString",
+                coordinates: coords
+              }
+            }
+          });
+
+          map.addLayer({
+            id: lyrId,
+            type: "line",
+            source: srcId,
+            layout: { "line-join": "round", "line-cap": "round" },
+            paint: {
+              "line-color": "#ef4444",
+              "line-width": 8,
+              "line-opacity": 0.75
+            }
+          });
+        } catch (e) {}
+      }
+    });
+  }, [map, incidents]);
 
   const floodPopupRef = useRef<any>(null);
   const bikeMarkerRef = useRef<any>(null);
@@ -185,9 +239,9 @@ export function HomeDemoMap() {
             })
               .setLngLat(midCoord)
               .setHTML(`
-                <div class="flex items-center p-0.5 font-bold">
-                  <span class="font-extrabold text-[10px] text-neutral-900 dark:text-neutral-100 tracking-normal leading-relaxed font-inter">
-                    Đoạn đường <span class="text-red-500 font-black">Marie Curie</span> sắp ngập trong <span class="text-yellow-600 dark:text-yellow-400 font-black font-semibold">10 phút</span> tới
+                <div class="flex items-center p-1.5 font-bold">
+                  <span class="font-extrabold text-sm sm:text-base md:text-lg text-neutral-900 dark:text-neutral-100 tracking-normal leading-relaxed font-Outfit">
+                    The road <span class="text-red-500 font-black">Marie Curie</span> is flooded in <span class="text-yellow-600 dark:text-yellow-400 font-black font-semibold">10 minutes</span>
                   </span>
                 </div>
               `)
@@ -195,7 +249,7 @@ export function HomeDemoMap() {
 
             floodPopupRef.current = popup;
 
-            // Add Alternative Safe Route (Green line)
+            // Add Alternative Safe Route (Blue line)
             map.addSource(altSourceId, {
               type: "geojson",
               data: {
@@ -220,7 +274,7 @@ export function HomeDemoMap() {
               }
             });
 
-            // Add Traveled Route Layer (Gray line)
+            // Add Traveled Gray Segment (Placeholder source)
             map.addSource(traveledSourceId, {
               type: "geojson",
               data: {
@@ -311,19 +365,8 @@ export function HomeDemoMap() {
               .addTo(map);
             animatedDotRef.current = travelerMarker;
 
-            const markerContainer = travelerMarker.getElement();
-            if (markerContainer) {
-              markerContainer.style.transition = "transform 0.24s linear";
-            }
-
-            const handleMoveStart = () => {
-              const el = travelerMarker.getElement();
-              if (el) el.style.transition = "none";
-            };
-            const handleMoveEnd = () => {
-              const el = travelerMarker.getElement();
-              if (el) el.style.transition = "transform 0.24s linear";
-            };
+            const handleMoveStart = () => {};
+            const handleMoveEnd = () => {};
 
             map.on("movestart", handleMoveStart);
             map.on("moveend", handleMoveEnd);
@@ -347,7 +390,19 @@ export function HomeDemoMap() {
               activeIdx = activeIdx + 1;
 
               if (activeIdx >= sparseAltCoords.length) {
-                activeIdx = 0; // Continuous loop
+                activeIdx = 0;
+                // Clean traveled track grey line
+                const src = map.getSource(traveledSourceId);
+                if (src) {
+                  src.setData({
+                    type: "Feature",
+                    properties: {},
+                    geometry: {
+                      type: "LineString",
+                      coordinates: []
+                    }
+                  });
+                }
               }
 
               const currentPos = sparseAltCoords[activeIdx];
@@ -355,16 +410,18 @@ export function HomeDemoMap() {
 
               if (!currentPos) return;
 
+              // Update Position
               travelerMarker.setLngLat(currentPos);
 
-              if (prevPos) {
-                const heading = getBearing(prevPos, currentPos);
-                const innerArrow = arrowEl.querySelector(".arrow-inner") as HTMLElement;
-                if (innerArrow) {
-                  innerArrow.style.transform = `rotate(${heading}deg)`;
-                }
+              // Update Rotation (Bearing)
+              const innerEl = arrowEl.querySelector(".arrow-inner") as HTMLElement;
+              let heading = 0;
+              if (innerEl && prevPos && currentPos) {
+                heading = getBearing(prevPos, currentPos);
+                innerEl.style.transform = `rotate(${heading - 45}deg)`;
               }
 
+              // Update Traveled Gray Segment
               const traveledSegment = sparseAltCoords.slice(0, activeIdx + 1);
               if (traveledSegment.length >= 2) {
                 const src = map.getSource(traveledSourceId);
@@ -387,11 +444,7 @@ export function HomeDemoMap() {
       }
     };
 
-    if (map.isStyleLoaded()) {
-      runDemoAnimation();
-    } else {
-      map.once("style.load", runDemoAnimation);
-    }
+    runDemoAnimation();
 
     return () => {
       active = false;

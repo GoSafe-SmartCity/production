@@ -325,7 +325,6 @@ export function CrudIncidentModal({
                                     <option value="FLOODING">Flooding</option>
                                     <option value="ACCIDENT">Accident</option>
                                     <option value="DEBRIS">Debris</option>
-                                    <option value="POTHOLES">Potholes</option>
                                 </select>
                             </div>
                             <div className="flex flex-col gap-1.5">
