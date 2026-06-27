@@ -92,13 +92,9 @@ export function FloodMapPage() {
     const [isCrudModalOpen, setIsCrudModalOpen] = useState(false);
     const [activeIncident, setActiveIncident] = useState<any | null>(null);
 
-    // Polyline road coordinates — fetched from Goong Directions API (same as homepage)
-    const [floodedStreetCoords, setFloodedStreetCoords] = useState<[number, number][]>([
-        [106.7991941, 10.8791999],
-        [106.8004081, 10.8789166],
-        [106.8013148, 10.8783257],
-    ]);
-    const [alternativeStreetCoords] = useState<[number, number][]>([]);
+    // Polyline road coordinates — fetched from Goong Directions API dynamically
+    const [floodedStreetCoords, setFloodedStreetCoords] = useState<[number, number][]>([]);
+    const [alternativeStreetCoords, setAlternativeStreetCoords] = useState<[number, number][]>([]);
 
     const [activeMapSubTab, setActiveMapSubTab] = useState<"cameras" | "feedback" | "weather">("cameras");
 
@@ -119,31 +115,70 @@ export function FloodMapPage() {
         return points;
     }, []);
 
-    // Fetch real Marie Curie road path from Goong Directions API (same as homepage)
+    // Fetch and calculate routes based on active incidents
     useEffect(() => {
         const fetchRealStreetPath = async () => {
             try {
                 const apiKey = process.env.NEXT_PUBLIC_GOONG_API_KEY || "2X3t5rZDLQiFHgLAdeGC8tkz2RZdTwfwMDtyFYSm";
-                // Origin: William Shakespeare junction, Destination: east end of Marie Curie
                 const res = await fetch(
-                    `https://rsapi.goong.io/direction?origin=10.8791999,106.7991941&destination=10.8783257,106.8013148&vehicle=bike&api_key=${apiKey}`
+                    `https://rsapi.goong.io/direction?origin=10.8795,106.8020&destination=10.8778,106.8005&vehicle=bike&alternatives=true&api_key=${apiKey}`
                 );
                 if (res.ok) {
                     const data = await res.json();
-                    const polyline = data.routes?.[0]?.overview_polyline?.points;
-                    if (polyline) {
-                        const decoded = decodePolyline(polyline);
-                        if (decoded.length > 0) {
-                            setFloodedStreetCoords(decoded);
+                    if (!data.routes || data.routes.length === 0) return;
+
+                    const primaryRoute = data.routes[0];
+                    const polyline0 = primaryRoute.overview_polyline?.points;
+                    if (!polyline0) return;
+                    const primaryPoints = decodePolyline(polyline0);
+
+                    // Check for blockages
+                    let isBlocked = false;
+                    for (const hazard of activeHazards) {
+                        if (hazard.status === "ACTIVE") {
+                            for (const pt of primaryPoints) {
+                                const distance = getDistance(pt[1], pt[0], hazard.latitude, hazard.longitude);
+                                if (distance < 0.5) { // 500m
+                                    isBlocked = true;
+                                    break;
+                                }
+                            }
                         }
+                        if (isBlocked) break;
+                    }
+
+                    if (isBlocked && data.routes.length > 1) {
+                        const altRoute = data.routes[1];
+                        const polyline1 = altRoute.overview_polyline?.points;
+                        if (polyline1) {
+                            const altPoints = decodePolyline(polyline1);
+                            setFloodedStreetCoords(primaryPoints);
+                            setAlternativeStreetCoords(altPoints);
+                        }
+                    } else {
+                        setFloodedStreetCoords([]);
+                        setAlternativeStreetCoords(primaryPoints);
                     }
                 }
             } catch (e) {
                 console.error("Failed to fetch Goong street path: ", e);
             }
         };
+
+        // Distance helper
+        function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+            const R = 6371; // km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
         fetchRealStreetPath();
-    }, [decodePolyline]);
+    }, [activeHazards, decodePolyline]);
 
     // Fetch handlers
     const fetchPendingReports = useCallback(async () => {

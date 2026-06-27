@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
 
     // Check if admin is creating incident directly
     if (session?.user?.role === "ADMIN" && body.directCreate) {
-      const { category, riskLevel, riskScore, locationName, description, recommendation, latitude, longitude } = body;
+      const { category, riskLevel, riskScore, locationName, description, recommendation, latitude, longitude, streetCoords, geom } = body;
       if (!category || !locationName || !description || latitude === undefined || longitude === undefined) {
         return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
       }
@@ -84,6 +84,8 @@ export async function POST(req: NextRequest) {
           longitude: parseFloat(longitude),
           status: "ACTIVE",
           startedAt: new Date(),
+          streetCoords: streetCoords || null,
+          geom: geom || null,
         }
       });
       return NextResponse.json({ success: true, incident });
@@ -145,7 +147,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const { id, category, riskScore, riskLevel, latitude, longitude, locationName, description, recommendation, status } = await req.json();
+    const { id, category, riskScore, riskLevel, latitude, longitude, locationName, description, recommendation, status, streetCoords, geom } = await req.json();
 
     if (!id || !category || !locationName || !description) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -163,6 +165,8 @@ export async function PUT(req: NextRequest) {
         description,
         recommendation: recommendation || "",
         status: status || "ACTIVE",
+        streetCoords: streetCoords || null,
+        geom: geom || null,
       },
     });
 

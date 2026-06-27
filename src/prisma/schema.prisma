@@ -104,6 +104,9 @@ model RoadIncident {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  geom           String?  @db.Text
+  streetCoords   String?  @db.Text
+
   reports        IncidentReport[]
   feedbacks      IncidentFeedback[]
 }

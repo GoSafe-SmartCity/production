@@ -114,6 +114,8 @@ async function main() {
       description: "Ngập nặng tại ngã tư Marie Curie – William Shakespeare. Mực nước đo được 45cm, xe máy chết máy hàng loạt.",
       recommendation: "CẤM ĐƯỜNG. Mực nước quá sâu. Xe máy đi vòng qua đường nội bộ ĐHQG. Ô tô chậm lại cẩn thận.",
       status: "ACTIVE",
+      streetCoords: JSON.stringify([[106.7991941, 10.8791999], [106.8004081, 10.8789166], [106.8013148, 10.8783257]]),
+      geom: JSON.stringify([[106.7991941, 10.8791999], [106.8004081, 10.8789166], [106.8013148, 10.8783257]]),
     },
     {
       category: "FLOODING",
@@ -125,6 +127,8 @@ async function main() {
       description: "Đọng nước 20cm sau cơn mưa lớn. Xe vẫn lưu thông chậm được nhưng cần cẩn thận.",
       recommendation: "NGẬP VỪA. Đi chậm, giữ ga đều. Không tắt máy giữa vùng ngập.",
       status: "ACTIVE",
+      streetCoords: JSON.stringify([[106.7991941, 10.8791999], [106.8004081, 10.8789166], [106.8013148, 10.8783257]]),
+      geom: JSON.stringify([[106.7991941, 10.8791999], [106.8004081, 10.8789166], [106.8013148, 10.8783257]]),
     },
     {
       category: "DEBRIS",
@@ -136,6 +140,8 @@ async function main() {
       description: "Cành cây gãy chắn ngang làn phải. Ảnh hưởng nhẹ đến giao thông.",
       recommendation: "NGUY CƠ THẤP. Đường thông, lái vòng qua chướng ngại vật.",
       status: "ACTIVE",
+      streetCoords: JSON.stringify([[106.8013148, 10.8783257], [106.8021, 10.8778]]),
+      geom: JSON.stringify([[106.8013148, 10.8783257], [106.8021, 10.8778]]),
     },
   ];
 

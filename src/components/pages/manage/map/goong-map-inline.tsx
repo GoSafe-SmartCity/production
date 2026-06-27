@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Script from "next/script";
 import { toast } from "sonner";
 
 /**
- * Admin GoongMapInline — copied from Homepage "Our GoSafe Map" section.
- * Uses Goong Directions API to get real road-following polyline (same as homepage).
- * Adds admin-specific markers: camera icons + alert/decision icon.
+ * Admin GoongMapInline — aligned with the User Map.
+ * Uses props floodedStreetCoords and alternativeStreetCoords for rendering route lines.
+ * Adds admin-specific interactive markers: cameras, feedback, and active hazards.
  */
 
 interface GoongMapInlineProps {
@@ -48,8 +48,8 @@ export function GoongMapInline({
     cameraStations,
     filteredReports,
     filteredWeather,
-    floodedStreetCoords: _floodedStreetCoordsProp,
-    alternativeStreetCoords: _altCoordsProp,
+    floodedStreetCoords,
+    alternativeStreetCoords,
     matchesFilterQuery,
     activeHazards,
     onEditIncident,
@@ -64,52 +64,6 @@ export function GoongMapInline({
     const markersRef = useRef<any[]>([]);
     const popupRef = useRef<any>(null);
 
-    // Real road-following coords from Goong Directions API (same as homepage)
-    const [realFloodedCoords, setRealFloodedCoords] = useState<[number, number][]>([]);
-
-    // Decode Goong polyline (exact copy from homepage)
-    const decodePolyline = useCallback((encoded: string): [number, number][] => {
-        const points: [number, number][] = [];
-        let index = 0, len = encoded.length;
-        let lat = 0, lng = 0;
-        while (index < len) {
-            let b, shift = 0, result = 0;
-            do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-            lat += ((result & 1) ? ~(result >> 1) : (result >> 1));
-            shift = 0; result = 0;
-            do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-            lng += ((result & 1) ? ~(result >> 1) : (result >> 1));
-            points.push([lng / 1e5, lat / 1e5]);
-        }
-        return points;
-    }, []);
-
-    // Fetch real road path from Goong Directions API (same as homepage)
-    useEffect(() => {
-        const fetchRealStreetPath = async () => {
-            try {
-                const apiKey = process.env.NEXT_PUBLIC_GOONG_API_KEY || "2X3t5rZDLQiFHgLAdeGC8tkz2RZdTwfwMDtyFYSm";
-                // Same origin/destination as homepage
-                const res = await fetch(
-                    `https://rsapi.goong.io/direction?origin=10.8795,106.8020&destination=10.8778,106.8005&vehicle=bike&api_key=${apiKey}`
-                );
-                if (res.ok) {
-                    const data = await res.json();
-                    const polyline = data.routes?.[0]?.overview_polyline?.points;
-                    if (polyline) {
-                        const decoded = decodePolyline(polyline);
-                        if (decoded.length > 0) {
-                            setRealFloodedCoords(decoded);
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error("Failed to fetch Goong street path: ", e);
-            }
-        };
-        fetchRealStreetPath();
-    }, [decodePolyline]);
-
     // Check if goong-js script is already loaded
     useEffect(() => {
         if (typeof window !== "undefined" && (window as any).goongjs) {
@@ -117,7 +71,7 @@ export function GoongMapInline({
         }
     }, []);
 
-    // Initialize map (same config as homepage)
+    // Initialize map
     useEffect(() => {
         let mapInstance: any = null;
         let timer: any = null;
@@ -131,11 +85,10 @@ export function GoongMapInline({
             goongjs.accessToken = tilesKey;
 
             timer = setTimeout(() => {
-                // Same map style as homepage — then setCenter to Marie Curie area
                 mapInstance = new goongjs.Map({
                     container: "admin-goong-map-inline",
                     style: "https://tiles.goong.io/assets/goong_map_web.json",
-                    center: [106.8008, 10.8782], // Marie Curie area (same userCoords as homepage)
+                    center: [106.8008, 10.8782], // Marie Curie area (matching homepage)
                     zoom: 16.03,
                     pitch: 55,
                     bearing: -15,
@@ -158,9 +111,7 @@ export function GoongMapInline({
         };
     }, [mapLoaded]);
 
-    // ══════════════════════════════════════════════════════════════
-    // Draw road overlay + markers (copied from homepage drawFloodedStreet)
-    // ══════════════════════════════════════════════════════════════
+    // Draw layers and place markers dynamically
     useEffect(() => {
         if (!adminMap) return;
 
@@ -171,29 +122,29 @@ export function GoongMapInline({
         // ── Clear previous markers ──
         markersRef.current.forEach(m => m.remove());
         markersRef.current = [];
-        if (popupRef.current) { popupRef.current.remove(); popupRef.current = null; }
+        if (popupRef.current) {
+            popupRef.current.remove();
+            popupRef.current = null;
+        }
 
         // ── Clear previous line layers ──
         const sourceId = "admin-flooded-street-source";
         const layerId = "admin-flooded-street-layer";
+        const altSourceId = "admin-alt-street-source";
+        const altLayerId = "admin-alt-street-layer";
         try {
             if (adminMap.getStyle()) {
                 if (adminMap.getLayer(layerId)) adminMap.removeLayer(layerId);
                 if (adminMap.getSource(sourceId)) adminMap.removeSource(sourceId);
+                if (adminMap.getLayer(altLayerId)) adminMap.removeLayer(altLayerId);
+                if (adminMap.getSource(altSourceId)) adminMap.removeSource(altSourceId);
             }
         } catch (e) { /* ignore */ }
 
         // ═══════════════════════════════════════
-        // 1. FLOODED ROAD LINE + ALERT (only when high-risk data in time window)
+        // 1. FLOODED ROAD LINE (RED) + ALERT
         // ═══════════════════════════════════════
-        const hasHighCameraFlood = cameraStations.some(st =>
-            st.detections?.some((d: any) => d.waterDepthCm >= 30 && matchesFilterQuery(d.timestamp))
-        );
-        const hasHighRain = filteredWeather.some(w => w.rainfall > 20);
-        const hasUserReports = filteredReports.some(r => r.category === "FLOODING");
-        const shouldShowFloodOverlay = showDecision && realFloodedCoords.length > 1 && (hasHighCameraFlood || hasHighRain || hasUserReports);
-
-        if (shouldShowFloodOverlay) {
+        if (showDecision && floodedStreetCoords && floodedStreetCoords.length > 1) {
             try {
                 adminMap.addSource(sourceId, {
                     type: "geojson",
@@ -202,7 +153,7 @@ export function GoongMapInline({
                         properties: {},
                         geometry: {
                             type: "LineString",
-                            coordinates: realFloodedCoords
+                            coordinates: floodedStreetCoords
                         }
                     }
                 });
@@ -218,71 +169,98 @@ export function GoongMapInline({
                         "line-opacity": 0.85
                     }
                 });
+
+                // Add warning popup at middle point
+                const midIdx = Math.floor(floodedStreetCoords.length / 2);
+                const midCoord = floodedStreetCoords[midIdx] || [106.8008, 10.8782];
+
+                const popup = new goongjs.Popup({
+                    closeButton: false,
+                    closeOnClick: false,
+                    className: "custom-popup"
+                })
+                .setLngLat(midCoord)
+                .setHTML(`
+                    <div class="flex items-center p-0.5 font-bold">
+                        <span class="font-extrabold text-[11px] text-neutral-900 tracking-normal leading-relaxed">
+                            🔴 Road segment is currently <span class="text-red-500 font-black">blocked / flooded</span>
+                        </span>
+                    </div>
+                `)
+                .addTo(adminMap);
+                popupRef.current = popup;
+
             } catch (e) {
                 console.warn("Failed to draw flooded street layer: ", e);
             }
-
-            // ═══════════════════════════════════════
-            // 2. FLOOD WARNING POPUP (same style as homepage)
-            // ═══════════════════════════════════════
-            const midIdx = Math.floor(realFloodedCoords.length / 2);
-            const midCoord = realFloodedCoords[midIdx] || [106.8008, 10.8782];
-
-            const popup = new goongjs.Popup({
-                closeButton: false,
-                closeOnClick: false,
-                className: "custom-popup"
-            })
-            .setLngLat(midCoord)
-            .setHTML(`
-                <div class="flex items-center p-0.5 font-bold">
-                    <span class="font-extrabold text-sm sm:text-base md:text-lg text-neutral-900 dark:text-neutral-100 tracking-normal leading-relaxed font-inter">
-                        <span class="text-red-500 font-black">Marie Curie</span> street is going to be <span class="text-red-500 font-black">flooded</span> in <span class="text-yellow-600 dark:text-yellow-400 font-black font-semibold">10 minutes</span>
-                    </span>
-                </div>
-            `)
-            .addTo(adminMap);
-            popupRef.current = popup;
-
-            // ═══════════════════════════════════════
-            // 3. ALERT / DECISION MARKER (warning triangle at junction)
-            // ═══════════════════════════════════════
-
-            const alertEl = document.createElement("div");
-            alertEl.style.cursor = "pointer";
-            alertEl.innerHTML = `
-                <div style="width:40px;height:40px;border-radius:50%;background:white;border:3px solid #ef4444;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 6px rgba(239,68,68,0.15), 0 2px 12px rgba(239,68,68,0.3);animation:pulse 2s infinite;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                </div>
-            `;
-
-            alertEl.addEventListener("click", (e) => {
-                e.stopPropagation();
-                onViewDecisionDetail({
-                    locationName: "Đường William Shakespeare / Marie Curie, Đông Hòa",
-                    description: "Severe road flooding detected via sensor fusion. High probability of engine stall. Closure strongly recommended.",
-                    category: "FLOODING",
-                    riskLevel: "HIGH",
-                    wCitizen: hasUserReports ? 30 : 0,
-                    wHistory: 20,
-                    wCamera: hasHighCameraFlood ? 50 : 15,
-                    totalScore: (hasUserReports ? 30 : 0) + 20 + (hasHighCameraFlood ? 50 : 15),
-                    cameras: "CAM_01 reports 48cm depth (HIGH severity).",
-                    weather: "OpenWeather logs 45.2mm rainfall (Heavy Intensity Rain).",
-                    citizen: "2 user feedbacks confirm road is completely blocked."
-                });
-            });
-
-            // Place alert at the start of the flooded road
-            const alertCoord = realFloodedCoords[0] || [106.8020, 10.8795];
-            const alertMarker = new goongjs.Marker({ element: alertEl, anchor: "center" })
-                .setLngLat(alertCoord)
-                .addTo(adminMap);
-            markersRef.current.push(alertMarker);
         }
 
         // ═══════════════════════════════════════
-        // 4. CAMERA MARKERS (camera icon — click to show recent frame)
+        // 2. SAFE DETOUR ROAD LINE (GREEN)
+        // ═══════════════════════════════════════
+        if (showDecision && alternativeStreetCoords && alternativeStreetCoords.length > 1) {
+            try {
+                adminMap.addSource(altSourceId, {
+                    type: "geojson",
+                    data: {
+                        type: "Feature",
+                        properties: {},
+                        geometry: {
+                            type: "LineString",
+                            coordinates: alternativeStreetCoords
+                        }
+                    }
+                });
+
+                adminMap.addLayer({
+                    id: altLayerId,
+                    type: "line",
+                    source: altSourceId,
+                    layout: { "line-join": "round", "line-cap": "round" },
+                    paint: {
+                        "line-color": "#00a850",
+                        "line-width": 12,
+                        "line-opacity": 0.85
+                    }
+                });
+            } catch (e) {
+                console.warn("Failed to draw detour street layer: ", e);
+            }
+        }
+
+        // ═══════════════════════════════════════
+        // 3. ACTIVE HAZARDS FROM DATABASE
+        // ═══════════════════════════════════════
+        if (showDecision) {
+            activeHazards.forEach(hazard => {
+                if (hazard.status === "ACTIVE") {
+                    let color = "#ef4444"; // Red for high-risk/flooded active
+                    if (hazard.riskLevel === "MEDIUM") color = "#f97316";
+                    else if (hazard.riskLevel === "LOW") color = "#3b82f6";
+
+                    const el = document.createElement("div");
+                    el.style.cursor = "pointer";
+                    el.innerHTML = `
+                        <div style="width:34px;height:34px;border-radius:50%;background:white;border:3px solid ${color};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,0.25);animation:pulse 2s infinite;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        </div>
+                    `;
+
+                    el.addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        if (onEditIncident) onEditIncident(hazard);
+                    });
+
+                    const m = new goongjs.Marker({ element: el, anchor: "center" })
+                        .setLngLat([hazard.longitude, hazard.latitude])
+                        .addTo(adminMap);
+                    markersRef.current.push(m);
+                }
+            });
+        }
+
+        // ═══════════════════════════════════════
+        // 4. CAMERA STATION MARKERS
         // ═══════════════════════════════════════
         if (showCamera) {
             cameraStations.forEach(st => {
@@ -318,10 +296,11 @@ export function GoongMapInline({
         }
 
         // ═══════════════════════════════════════
-        // 5. CITIZEN FEEDBACK MARKERS
+        // 5. CITIZEN REPORT MARKERS (PENDING / APPROVED)
         // ═══════════════════════════════════════
         if (showFeedback) {
             filteredReports.forEach(rep => {
+                if (rep.status !== "PENDING") return;
                 let color = "#3b82f6";
                 if (rep.category === "ACCIDENT") color = "#ef4444";
 
@@ -377,7 +356,7 @@ export function GoongMapInline({
             });
         }
 
-    }, [adminMap, showCamera, showFeedback, showWeather, showDecision, cameraStations, filteredReports, filteredWeather, realFloodedCoords, activeHazards]);
+    }, [adminMap, showCamera, showFeedback, showWeather, showDecision, cameraStations, filteredReports, filteredWeather, floodedStreetCoords, alternativeStreetCoords, activeHazards]);
 
     return (
         <div className="w-full h-[450px] relative border-b border-slate-200 bg-slate-100 shadow-inner">

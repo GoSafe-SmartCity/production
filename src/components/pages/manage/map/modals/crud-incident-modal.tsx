@@ -45,11 +45,51 @@ export function CrudIncidentModal({
     const [incidentLat, setIncidentLat] = useState(activeIncident ? activeIncident.latitude : 10.87820);
     const [incidentLng, setIncidentLng] = useState(activeIncident ? activeIncident.longitude : 106.80080);
 
+    const [specifySegment, setSpecifySegment] = useState(activeIncident?.streetCoords ? true : false);
+    const [startLat, setStartLat] = useState<number>(() => {
+        if (activeIncident?.streetCoords) {
+            try {
+                const arr = JSON.parse(activeIncident.streetCoords);
+                if (arr.length > 0) return arr[0][1];
+            } catch (e) {}
+        }
+        return activeIncident ? activeIncident.latitude : 10.87820;
+    });
+    const [startLng, setStartLng] = useState<number>(() => {
+        if (activeIncident?.streetCoords) {
+            try {
+                const arr = JSON.parse(activeIncident.streetCoords);
+                if (arr.length > 0) return arr[0][0];
+            } catch (e) {}
+        }
+        return activeIncident ? activeIncident.longitude : 106.80080;
+    });
+    const [endLat, setEndLat] = useState<number>(() => {
+        if (activeIncident?.streetCoords) {
+            try {
+                const arr = JSON.parse(activeIncident.streetCoords);
+                if (arr.length > 0) return arr[arr.length - 1][1];
+            } catch (e) {}
+        }
+        return activeIncident ? activeIncident.latitude : 10.87900;
+    });
+    const [endLng, setEndLng] = useState<number>(() => {
+        if (activeIncident?.streetCoords) {
+            try {
+                const arr = JSON.parse(activeIncident.streetCoords);
+                if (arr.length > 0) return arr[arr.length - 1][0];
+            } catch (e) {}
+        }
+        return activeIncident ? activeIncident.longitude : 106.80200;
+    });
+
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Map refs
     const [crudMap, setCrudMap] = useState<any>(null);
     const crudMarkerRef = useRef<any>(null);
+    const startMarkerRef = useRef<any>(null);
+    const endMarkerRef = useRef<any>(null);
 
     // Check if script is already loaded (fallback)
     useEffect(() => {
@@ -87,27 +127,72 @@ export function CrudIncidentModal({
                 mapInstance.on("load", () => {
                     setCrudMap(mapInstance);
 
-                    const markerInstance = new goongjs.Marker({
-                        draggable: true
-                    })
-                    .setLngLat(centerCoords)
-                    .addTo(mapInstance);
+                    if (specifySegment) {
+                        // Render two markers: Start (Green) and End (Red)
+                        const startEl = document.createElement("div");
+                        startEl.className = "w-6 h-6 rounded-full bg-green-500 border-2 border-white flex items-center justify-center text-white font-bold text-[9px] shadow-lg cursor-pointer";
+                        startEl.innerHTML = "S";
 
-                    crudMarkerRef.current = markerInstance;
+                        const startMarker = new goongjs.Marker({ element: startEl, draggable: true })
+                            .setLngLat([startLng, startLat])
+                            .addTo(mapInstance);
+                        startMarkerRef.current = startMarker;
 
-                    markerInstance.on("dragend", () => {
-                        const lngLat = markerInstance.getLngLat();
-                        setIncidentLat(lngLat.lat);
-                        setIncidentLng(lngLat.lng);
-                    });
+                        const endEl = document.createElement("div");
+                        endEl.className = "w-6 h-6 rounded-full bg-red-500 border-2 border-white flex items-center justify-center text-white font-bold text-[9px] shadow-lg cursor-pointer";
+                        endEl.innerHTML = "E";
+
+                        const endMarker = new goongjs.Marker({ element: endEl, draggable: true })
+                            .setLngLat([endLng, endLat])
+                            .addTo(mapInstance);
+                        endMarkerRef.current = endMarker;
+
+                        startMarker.on("dragend", () => {
+                            const lngLat = startMarker.getLngLat();
+                            setStartLat(lngLat.lat);
+                            setStartLng(lngLat.lng);
+                            setIncidentLat(lngLat.lat);
+                            setIncidentLng(lngLat.lng);
+                        });
+
+                        endMarker.on("dragend", () => {
+                            const lngLat = endMarker.getLngLat();
+                            setEndLat(lngLat.lat);
+                            setEndLng(lngLat.lng);
+                        });
+                    } else {
+                        // Render single marker
+                        const markerInstance = new goongjs.Marker({
+                            draggable: true
+                        })
+                        .setLngLat(centerCoords)
+                        .addTo(mapInstance);
+
+                        crudMarkerRef.current = markerInstance;
+
+                        markerInstance.on("dragend", () => {
+                            const lngLat = markerInstance.getLngLat();
+                            setIncidentLat(lngLat.lat);
+                            setIncidentLng(lngLat.lng);
+                        });
+                    }
                 });
 
                 mapInstance.on("click", (e: any) => {
                     const coords = e.lngLat;
-                    setIncidentLat(coords.lat);
-                    setIncidentLng(coords.lng);
-                    if (crudMarkerRef.current) {
-                        crudMarkerRef.current.setLngLat([coords.lng, coords.lat]);
+                    if (specifySegment) {
+                        // Clicking maps places endMarker coords
+                        setEndLat(coords.lat);
+                        setEndLng(coords.lng);
+                        if (endMarkerRef.current) {
+                            endMarkerRef.current.setLngLat([coords.lng, coords.lat]);
+                        }
+                    } else {
+                        setIncidentLat(coords.lat);
+                        setIncidentLng(coords.lng);
+                        if (crudMarkerRef.current) {
+                            crudMarkerRef.current.setLngLat([coords.lng, coords.lat]);
+                        }
                     }
                 });
             }, 200);
@@ -120,8 +205,43 @@ export function CrudIncidentModal({
             }
             setCrudMap(null);
             crudMarkerRef.current = null;
+            startMarkerRef.current = null;
+            endMarkerRef.current = null;
         };
-    }, [mapLoaded]);
+    }, [mapLoaded, specifySegment]);
+
+    const decodePolyline = (encoded: string) => {
+        if (!encoded) return [];
+        let len = encoded.length;
+        let index = 0;
+        let lat = 0;
+        let lng = 0;
+        const points: [number, number][] = [];
+
+        while (index < len) {
+            let b, shift = 0, result = 0;
+            do {
+                b = encoded.charCodeAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            const dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+            lat += dlat;
+
+            shift = 0;
+            result = 0;
+            do {
+                b = encoded.charCodeAt(index++) - 63;
+                result |= (b & 0x1f) << shift;
+                shift += 5;
+            } while (b >= 0x20);
+            const dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+            lng += dlng;
+
+            points.push([lng / 1e5, lat / 1e5]);
+        }
+        return points;
+    };
 
     const handleFormSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -131,6 +251,25 @@ export function CrudIncidentModal({
         }
 
         setIsSubmitting(true);
+
+        let streetCoordsStr = activeIncident?.streetCoords || null;
+        if (specifySegment && startLat && startLng && endLat && endLng) {
+            try {
+                const apiKey = process.env.NEXT_PUBLIC_GOONG_API_KEY || "2X3t5rZDLQiFHgLAdeGC8tkz2RZdTwfwMDtyFYSm";
+                const res = await fetch(`https://rsapi.goong.io/direction?origin=${startLat},${startLng}&destination=${endLat},${endLng}&vehicle=car&api_key=${apiKey}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const polyline = data.routes?.[0]?.overview_polyline?.points;
+                    if (polyline) {
+                        const decoded = decodePolyline(polyline);
+                        streetCoordsStr = JSON.stringify(decoded);
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to fetch Goong road segment: ", e);
+            }
+        }
+
         const payload = {
             id: activeIncident?.id,
             category: incidentCategory,
@@ -142,6 +281,8 @@ export function CrudIncidentModal({
             latitude: incidentLat,
             longitude: incidentLng,
             status: activeIncident ? activeIncident.status : "ACTIVE",
+            streetCoords: streetCoordsStr,
+            geom: streetCoordsStr,
         };
 
         try {
@@ -201,6 +342,19 @@ export function CrudIncidentModal({
                             </div>
                         </div>
 
+                        <div className="flex items-center gap-2 p-3 bg-slate-50 border border-slate-200 rounded-2xl select-none">
+                            <input 
+                                type="checkbox" 
+                                id="specify-segment-checkbox"
+                                checked={specifySegment} 
+                                onChange={(e) => setSpecifySegment(e.target.checked)} 
+                                className="h-4 w-4 text-primary border-slate-350 rounded cursor-pointer"
+                            />
+                            <label htmlFor="specify-segment-checkbox" className="text-[11px] font-bold text-slate-700 cursor-pointer">
+                                Specify Blocked Road Segment (Start & End coordinates)
+                            </label>
+                        </div>
+
                         <div className="grid grid-cols-2 gap-3">
                             <div className="flex flex-col gap-1.5">
                                 <label className="text-[10px] font-bold text-slate-500 uppercase">Risk Score (0-100)</label>
@@ -245,16 +399,41 @@ export function CrudIncidentModal({
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">Latitude (Lat)</span>
-                                <span className="text-xs font-bold text-slate-800 mt-1">{incidentLat.toFixed(6)}</span>
+                        {specifySegment ? (
+                            <div className="flex flex-col gap-2.5 bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
+                                <div className="grid grid-cols-2 gap-3 border-b pb-2 border-slate-200/50">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[9px] font-bold text-green-600 uppercase leading-none">Start Latitude</span>
+                                        <span className="text-xs font-bold text-slate-800 mt-1">{startLat.toFixed(6)}</span>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[9px] font-bold text-green-600 uppercase leading-none">Start Longitude</span>
+                                        <span className="text-xs font-bold text-slate-800 mt-1">{startLng.toFixed(6)}</span>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[9px] font-bold text-red-500 uppercase leading-none">End Latitude</span>
+                                        <span className="text-xs font-bold text-slate-800 mt-1">{endLat.toFixed(6)}</span>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-[9px] font-bold text-red-500 uppercase leading-none">End Longitude</span>
+                                        <span className="text-xs font-bold text-slate-800 mt-1">{endLng.toFixed(6)}</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex flex-col gap-1">
-                                <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">Longitude (Lng)</span>
-                                <span className="text-xs font-bold text-slate-800 mt-1">{incidentLng.toFixed(6)}</span>
+                        ) : (
+                            <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">Latitude (Lat)</span>
+                                    <span className="text-xs font-bold text-slate-800 mt-1">{incidentLat.toFixed(6)}</span>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">Longitude (Lng)</span>
+                                    <span className="text-xs font-bold text-slate-800 mt-1">{incidentLng.toFixed(6)}</span>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     <div className="flex flex-col gap-3 h-full">

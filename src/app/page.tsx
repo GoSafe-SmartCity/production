@@ -8,7 +8,7 @@ import Script from "next/script";
 import {
   MapPin, AlertTriangle, Navigation, Award, Sliders, User,
   Calendar, Users, CheckCircle, XCircle, Plus, Loader2,
-  Upload, Info, Bell, Shield, ArrowDown, Map, Compass, HardHat, Eye, Brain
+  Upload, Info, Bell, Shield, ArrowDown, Map, Compass, HardHat, Eye, Brain, ThumbsUp, ThumbsDown
 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { AuroraText } from "@/components/ui/aurora-text";
+import { HomeDemoMap } from "@/components/pages/home/home-demo-map";
 
 const ease = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -56,6 +57,19 @@ export default function HomePage() {
   const [navStep, setNavStep] = useState<"idle" | "routing" | "active">("idle");
   const [navPoints, setNavPoints] = useState<{ lat: number; lng: number }[]>([]);
 
+  // Start Autocomplete & Proposed Search States
+  const [startCoords, setStartCoords] = useState<{ lat: number; lng: number }>({ lat: 10.8782, lng: 106.8008 });
+  const [startQuery, setStartQuery] = useState("Vị trí hiện tại (GPS)");
+  const [startSuggestions, setStartSuggestions] = useState<any[]>([]);
+  const skipStartQueryRef = useRef(false);
+
+  // Destination Autocomplete Search States
+  const [destCoords, setDestCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [destQuery, setDestQuery] = useState("");
+  const [destSuggestions, setDestSuggestions] = useState<any[]>([]);
+  const skipDestQueryRef = useRef(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+
   // Telemetry Widget State
   const [weather, setWeather] = useState<any>(null);
 
@@ -65,22 +79,10 @@ export default function HomePage() {
   // Geolocation & Flooded Street States (Focused on Đại học Quốc tế VNU-HCM in Thủ Đức)
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number }>({ lat: 10.8782, lng: 106.8008 });
 
-  // Fallback: decoded points of blocked Vo Truong Toan road
-  const [floodedStreetCoords, setFloodedStreetCoords] = useState<[number, number][]>([
-    [106.8020, 10.8795],
-    [106.8015, 10.8790],
-    [106.8010, 10.8785],
-    [106.8005, 10.8778]
-  ]);
-
-  // Fallback: decoded alternative VNU campus detour path
-  const [alternativeStreetCoords, setAlternativeStreetCoords] = useState<[number, number][]>([
-    [106.8020, 10.8795],
-    [106.8030, 10.8788],
-    [106.8025, 10.8775],
-    [106.8010, 10.8768],
-    [106.8005, 10.8778]
-  ]);
+  // Fallback: coordinates of Marie Curie street
+  const [floodedStreetCoords, setFloodedStreetCoords] = useState<[number, number][]>([]);
+  const [alternativeStreetCoords, setAlternativeStreetCoords] = useState<[number, number][]>([]);
+  const dbBlockedLayersRef = useRef<string[]>([]);
 
   // Decode Goong polyline helper
   const decodePolyline = useCallback((encoded: string) => {
@@ -113,37 +115,140 @@ export default function HomePage() {
     return points;
   }, []);
 
-  // Fetch real street path & alternative path from Goong API
+  // Fetch real geolocation GPS coordinates on load
   useEffect(() => {
-    const fetchRealStreetPath = async () => {
+    if (typeof window !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const coords = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          setUserCoords(coords);
+          setStartCoords(coords);
+
+          // Reverse geocode starting position to a real address name using Goong API
+          const apiKey = process.env.NEXT_PUBLIC_GOONG_API_KEY || "2X3t5rZDLQiFHgLAdeGC8tkz2RZdTwfwMDtyFYSm";
+          skipStartQueryRef.current = true;
+          fetch(`https://rsapi.goong.io/Geocode?api_key=${apiKey}&latlng=${coords.lat},${coords.lng}`)
+            .then(res => res.json())
+            .then(data => {
+              const address = data.results?.[0]?.formatted_address;
+              if (address) {
+                setStartQuery(address);
+              } else {
+                setStartQuery(`Vị trí định vị GPS (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`);
+              }
+            })
+            .catch(() => {
+              setStartQuery(`Vị trí định vị GPS (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`);
+            });
+        },
+        (error) => {
+          console.warn("Geolocation access denied. Using fallback VNU-HCM coordinates.", error);
+        },
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    }
+  }, []);
+
+  // Autocomplete Suggestions for Starting Location
+  useEffect(() => {
+    if (skipStartQueryRef.current) {
+      setStartSuggestions([]);
+      return;
+    }
+    if (!startQuery || startQuery === "Vị trí hiện tại (GPS)" || startQuery.startsWith("Vị trí định vị GPS") || startQuery.length < 2) {
+      setStartSuggestions([]);
+      return;
+    }
+    const delayDebounce = setTimeout(async () => {
       try {
         const apiKey = process.env.NEXT_PUBLIC_GOONG_API_KEY || "2X3t5rZDLQiFHgLAdeGC8tkz2RZdTwfwMDtyFYSm";
-        const res = await fetch(`https://rsapi.goong.io/direction?origin=10.8795,106.8020&destination=10.8778,106.8005&vehicle=bike&alternatives=true&api_key=${apiKey}`);
+        const res = await fetch(
+          `https://rsapi.goong.io/Place/AutoComplete?api_key=${apiKey}&input=${encodeURIComponent(startQuery)}&location=${userCoords.lat},${userCoords.lng}`
+        );
         if (res.ok) {
           const data = await res.json();
-          // Primary Route (Flooded)
-          const polyline0 = data.routes?.[0]?.overview_polyline?.points;
-          if (polyline0) {
-            const decoded0 = decodePolyline(polyline0);
-            if (decoded0.length > 0) {
-              setFloodedStreetCoords(decoded0);
-            }
-          }
-          // Alternative Route (Safe Detour)
-          const polyline1 = data.routes?.[1]?.overview_polyline?.points;
-          if (polyline1) {
-            const decoded1 = decodePolyline(polyline1);
-            if (decoded1.length > 0) {
-              setAlternativeStreetCoords(decoded1);
-            }
+          if (data.predictions) {
+            setStartSuggestions(data.predictions);
           }
         }
       } catch (e) {
-        console.error("Failed to fetch Goong street path: ", e);
+        console.error("Autocomplete starting fetch failed:", e);
       }
-    };
-    fetchRealStreetPath();
-  }, [decodePolyline]);
+    }, 400);
+    return () => clearTimeout(delayDebounce);
+  }, [startQuery, userCoords]);
+
+  // Autocomplete Suggestions for Destination Location
+  useEffect(() => {
+    if (skipDestQueryRef.current) {
+      setDestSuggestions([]);
+      return;
+    }
+    if (!destQuery || destQuery.length < 2) {
+      setDestSuggestions([]);
+      return;
+    }
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const apiKey = process.env.NEXT_PUBLIC_GOONG_API_KEY || "2X3t5rZDLQiFHgLAdeGC8tkz2RZdTwfwMDtyFYSm";
+        const res = await fetch(
+          `https://rsapi.goong.io/Place/AutoComplete?api_key=${apiKey}&input=${encodeURIComponent(destQuery)}&location=${userCoords.lat},${userCoords.lng}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data.predictions) {
+            setDestSuggestions(data.predictions);
+          }
+        }
+      } catch (e) {
+        console.error("Autocomplete destination fetch failed:", e);
+      }
+    }, 400);
+    return () => clearTimeout(delayDebounce);
+  }, [destQuery, userCoords]);
+
+  const handleSelectStartSuggestion = async (suggestion: any) => {
+    skipStartQueryRef.current = true;
+    setStartQuery(suggestion.description);
+    setStartSuggestions([]);
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_GOONG_API_KEY || "2X3t5rZDLQiFHgLAdeGC8tkz2RZdTwfwMDtyFYSm";
+      const res = await fetch(`https://rsapi.goong.io/Place/Detail?api_key=${apiKey}&place_id=${suggestion.place_id}`);
+      if (res.ok) {
+        const data = await res.json();
+        const loc = data.result?.geometry?.location;
+        if (loc) {
+          setStartCoords({ lat: loc.lat, lng: loc.lng });
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Không thể lấy toạ độ khởi hành.");
+    }
+  };
+
+  const handleSelectDestSuggestion = async (suggestion: any) => {
+    skipDestQueryRef.current = true;
+    setDestQuery(suggestion.description);
+    setDestSuggestions([]);
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_GOONG_API_KEY || "2X3t5rZDLQiFHgLAdeGC8tkz2RZdTwfwMDtyFYSm";
+      const res = await fetch(`https://rsapi.goong.io/Place/Detail?api_key=${apiKey}&place_id=${suggestion.place_id}`);
+      if (res.ok) {
+        const data = await res.json();
+        const loc = data.result?.geometry?.location;
+        if (loc) {
+          setDestCoords({ lat: loc.lat, lng: loc.lng });
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Không thể lấy toạ độ điểm đến.");
+    }
+  };
 
   // Update map centers when userCoords changes
   useEffect(() => {
@@ -156,8 +261,8 @@ export default function HomePage() {
   }, [map, mapHero, userCoords]);
 
   // Draw flooded street & safe alternative path section on map
-  const drawFloodedStreet = useCallback((mapInstance: any, primaryCoords: [number, number][], altCoords: [number, number][]) => {
-    if (!mapInstance || primaryCoords.length === 0 || altCoords.length === 0) return;
+  const drawFloodedStreet = useCallback((mapInstance: any, primaryCoords: [number, number][], altCoords: [number, number][], currentNavStep: string, tab: string, incidentsList: any[] = []) => {
+    if (!mapInstance) return;
 
     const sourceId = "flooded-street-source";
     const layerId = "flooded-street-layer";
@@ -174,6 +279,13 @@ export default function HomePage() {
       if (mapInstance.getSource(altSourceId)) mapInstance.removeSource(altSourceId);
       if (mapInstance.getLayer(traveledLayerId)) mapInstance.removeLayer(traveledLayerId);
       if (mapInstance.getSource(traveledSourceId)) mapInstance.removeSource(traveledSourceId);
+
+      // Clean up previous database incident layers
+      dbBlockedLayersRef.current.forEach(id => {
+        if (mapInstance.getLayer(id)) mapInstance.removeLayer(id);
+        if (mapInstance.getSource(id)) mapInstance.removeSource(id);
+      });
+      dbBlockedLayersRef.current = [];
 
       // 2. Clean up previous markers & animations
       if (floodPopupRef.current) {
@@ -212,30 +324,106 @@ export default function HomePage() {
       const goongjs = window.goongjs;
       if (!goongjs) return;
 
-      // 3. Add Primary Flooded Route (Red line, width 12)
-      mapInstance.addSource(sourceId, {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "LineString",
-            coordinates: primaryCoords
-          }
-        }
-      });
+      if (altCoords.length === 0) return;
 
-      mapInstance.addLayer({
-        id: layerId,
-        type: "line",
-        source: sourceId,
-        layout: { "line-join": "round", "line-cap": "round" },
-        paint: {
-          "line-color": "#ef4444",
-          "line-width": 12,
-          "line-opacity": 0.85
-        }
-      });
+      // Draw all active database incidents' blocked road segments in red on Map tab
+      if (tab === "navigation") {
+        incidentsList.forEach(inc => {
+          if ((inc.status === "ACTIVE" || inc.status === "APPROVED") && inc.streetCoords) {
+            try {
+              const coords = JSON.parse(inc.streetCoords);
+              const srcId = `db-blocked-src-${inc.id}`;
+              const lyrId = `db-blocked-lyr-${inc.id}`;
+              
+              if (mapInstance.getSource(srcId)) return;
+
+              mapInstance.addSource(srcId, {
+                type: "geojson",
+                data: {
+                  type: "Feature",
+                  properties: {},
+                  geometry: {
+                    type: "LineString",
+                    coordinates: coords
+                  }
+                }
+              });
+
+              mapInstance.addLayer({
+                id: lyrId,
+                type: "line",
+                source: srcId,
+                layout: { "line-join": "round", "line-cap": "round" },
+                paint: {
+                  "line-color": "#ef4444",
+                  "line-width": 8,
+                  "line-opacity": 0.75
+                }
+              });
+
+              dbBlockedLayersRef.current.push(lyrId);
+            } catch (e) {}
+          }
+        });
+      }
+
+      // 3. Add Primary Flooded Route (Red line, width 12) - Only if blocked coords exist
+      if (primaryCoords.length > 1) {
+        mapInstance.addSource(sourceId, {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: primaryCoords
+            }
+          }
+        });
+
+        mapInstance.addLayer({
+          id: layerId,
+          type: "line",
+          source: sourceId,
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: {
+            "line-color": "#ef4444",
+            "line-width": 12,
+            "line-opacity": 0.85
+          }
+        });
+
+        // Warn popup on the primary route (at the middle coord)
+        const midIdx = Math.floor(primaryCoords.length / 2);
+        const midCoord = primaryCoords[midIdx] || [106.8005, 10.8778];
+
+        const popup = new goongjs.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          className: "custom-popup"
+        })
+          .setLngLat(midCoord)
+          .setHTML(
+            tab === "home"
+              ? `
+                <div class="flex items-center p-0.5 font-bold">
+                  <span class="font-extrabold text-sm sm:text-base md:text-lg text-neutral-900 dark:text-neutral-100 tracking-normal leading-relaxed font-inter">
+                    Đoạn đường <span class="text-red-500 font-black">Marie Curie</span> sắp ngập trong <span class="text-yellow-600 dark:text-yellow-400 font-black font-semibold">10 phút</span> tới
+                  </span>
+                </div>
+              `
+              : `
+                <div class="flex items-center p-0.5 font-bold">
+                  <span class="font-extrabold text-xs text-neutral-900 dark:text-neutral-100 tracking-normal leading-relaxed">
+                    🔴 Road blocked. GoSafe automated detour routing active.
+                  </span>
+                </div>
+              `
+          )
+          .addTo(mapInstance);
+
+        floodPopupRef.current = popup;
+      }
 
       // 4. Add Alternative Safe Route (Green line, width 12)
       mapInstance.addSource(altSourceId, {
@@ -287,29 +475,7 @@ export default function HomePage() {
         }
       });
 
-      // 6. Add Persistent Popover Warning on the Primary route (at the middle coord)
-      const midIdx = Math.floor(primaryCoords.length / 2);
-      const midCoord = primaryCoords[midIdx] || [106.3609, 10.3600];
-
-      const popup = new goongjs.Popup({
-        closeButton: false,
-        closeOnClick: false,
-        className: "custom-popup"
-      })
-        .setLngLat(midCoord)
-        .setHTML(`
-          <div class="flex items-center p-0.5 font-bold">
-            <span class="font-extrabold text-sm sm:text-base md:text-lg text-neutral-900 dark:text-neutral-100 tracking-normal leading-relaxed font-inter">
-              <span class="text-red-500 font-black">Marie Curie</span> street is going to be <span class="text-red-500 font-black">flooded</span> in <span class="text-yellow-600 dark:text-yellow-400 font-black font-semibold">10 minutes</span>
-            </span>
-          </div>
-        `)
-        .addTo(mapInstance);
-
-      floodPopupRef.current = popup;
-
-      // 7. Add Pin markers: Bike for Start, Red Pin for End
-      // Start (Current Position) - Bike Asset
+      // 6. Pin markers: Bike for Start, Red Pin for End
       const startCoord = altCoords[0];
       const bikeEl = document.createElement("div");
       bikeEl.className = "p-1.5 bg-[#00a850] text-white rounded-full shadow-2xl border-2 border-white animate-bounce-subtle cursor-pointer";
@@ -325,7 +491,6 @@ export default function HomePage() {
         .addTo(mapInstance);
       bikeMarkerRef.current = bikeMarker;
 
-      // End Position - Pin Icon (NO ANIMATION)
       const endCoord = altCoords[altCoords.length - 1];
       const pinEl = document.createElement("div");
       pinEl.className = "p-1.5 bg-red-500 text-white rounded-full shadow-2xl border-2 border-white cursor-pointer";
@@ -338,6 +503,11 @@ export default function HomePage() {
         .setLngLat(endCoord)
         .addTo(mapInstance);
       endMarkerRef.current = endMarker;
+
+      // Only run arrow animation and camera bearing updates when the navigation is actively started
+      if (currentNavStep !== "active") {
+        return;
+      }
 
       // Interpolate points for super smooth line following
       const interpolateCoords = (coords: [number, number][], stepsPerSegment: number = 8) => {
@@ -357,9 +527,9 @@ export default function HomePage() {
         return result;
       };
 
-      const sparseAltCoords = interpolateCoords(altCoords, 3); // Densely sparse: 3 intermediate steps for clean sliding
+      const sparseAltCoords = interpolateCoords(altCoords, 3);
 
-      // 8. Play Route Flow Animation (Moving Navigation Arrow with Gray Traveled Segment)
+      // 7. Play Route Flow Animation (Moving Navigation Arrow with Gray Traveled Segment)
       let activeIdx = 0;
       const arrowEl = document.createElement("div");
       arrowEl.innerHTML = `
@@ -377,13 +547,11 @@ export default function HomePage() {
         .addTo(mapInstance);
       animatedDotRef.current = travelerMarker;
 
-      // Apply CSS transition to the parent element positioned by Goong JS map
       const markerContainer = travelerMarker.getElement();
       if (markerContainer) {
         markerContainer.style.transition = "transform 0.24s linear";
       }
 
-      // Handle drag/zoom transition toggle to prevent lagging/jumping during map movement
       const handleMoveStart = () => {
         const el = travelerMarker.getElement();
         if (el) el.style.transition = "none";
@@ -399,7 +567,6 @@ export default function HomePage() {
       moveStartHandlerRef.current = handleMoveStart;
       moveEndHandlerRef.current = handleMoveEnd;
 
-      // Helper to compute bearing
       const getBearing = (from: [number, number], to: [number, number]) => {
         const lat1 = from[1] * Math.PI / 180;
         const lat2 = to[1] * Math.PI / 180;
@@ -413,21 +580,46 @@ export default function HomePage() {
 
       animationIntervalRef.current = setInterval(() => {
         const prevIdx = activeIdx;
-        activeIdx = (activeIdx + 1) % sparseAltCoords.length;
+        activeIdx = activeIdx + 1;
+
+        if (activeIdx >= sparseAltCoords.length) {
+          if (tab === "home") {
+            activeIdx = 0;
+          } else {
+            clearInterval(animationIntervalRef.current);
+            animationIntervalRef.current = null;
+            // Reached destination! Prompt user for feedback immediately
+            setIsFeedbackOpen(true);
+            return;
+          }
+        }
 
         const currentPos = sparseAltCoords[activeIdx];
         const prevPos = sparseAltCoords[prevIdx];
 
         if (!currentPos) return;
 
-        // Update Position (Slides smoothly thanks to transition on markerContainer)
+        // Update Position
         travelerMarker.setLngLat(currentPos);
 
         // Update Rotation (Bearing) on the inner rotated element
         const innerEl = arrowEl.querySelector(".arrow-inner") as HTMLElement;
+        let heading = 0;
         if (innerEl && prevPos && currentPos) {
-          const heading = getBearing(prevPos, currentPos);
+          heading = getBearing(prevPos, currentPos);
           innerEl.style.transform = `rotate(${heading - 45}deg)`;
+        }
+
+        // UPDATE CAMERA (First Person Google Map View)
+        if (mapInstance && currentPos && prevPos) {
+          mapInstance.easeTo({
+            center: currentPos,
+            bearing: heading,
+            pitch: 65,
+            zoom: 18.5,
+            duration: 220,
+            easing: (t: number) => t
+          });
         }
 
         // Update Traveled Gray segment
@@ -445,24 +637,26 @@ export default function HomePage() {
             });
           }
         }
-      }, 240); // 240ms interval matched perfectly with 0.24s CSS transition for smooth gliding
+      }, 240);
 
     } catch (e) {
       console.warn("Failed to draw flooded street layer: ", e);
     }
   }, []);
 
+
+
   useEffect(() => {
-    if (map && floodedStreetCoords.length > 0 && alternativeStreetCoords.length > 0) {
+    if (map && activeTab === "navigation") {
       if (map.isStyleLoaded()) {
-        drawFloodedStreet(map, floodedStreetCoords, alternativeStreetCoords);
+        drawFloodedStreet(map, floodedStreetCoords, alternativeStreetCoords, navStep, activeTab, incidents);
       } else {
         map.once("style.load", () => {
-          drawFloodedStreet(map, floodedStreetCoords, alternativeStreetCoords);
+          drawFloodedStreet(map, floodedStreetCoords, alternativeStreetCoords, navStep, activeTab, incidents);
         });
       }
     }
-  }, [map, floodedStreetCoords, alternativeStreetCoords, drawFloodedStreet]);
+  }, [map, floodedStreetCoords, alternativeStreetCoords, navStep, activeTab, incidents, drawFloodedStreet]);
 
   // Report Modal States
   const [isReportOpen, setIsReportOpen] = useState(false);
@@ -512,6 +706,15 @@ export default function HomePage() {
   const moveStartHandlerRef = useRef<any>(null);
   const moveEndHandlerRef = useRef<any>(null);
   const mapInstanceRef = useRef<any>(null);
+
+  const homeFloodPopupRef = useRef<any>(null);
+  const homeBikeMarkerRef = useRef<any>(null);
+  const homeEndMarkerRef = useRef<any>(null);
+  const homeAnimatedDotRef = useRef<any>(null);
+  const homeAnimationIntervalRef = useRef<any>(null);
+  const homeMoveStartHandlerRef = useRef<any>(null);
+  const homeMoveEndHandlerRef = useRef<any>(null);
+  const homeMapInstanceRef = useRef<any>(null);
 
   // Fetch current user points and consent
   const fetchUserProfile = useCallback(async () => {
@@ -677,11 +880,11 @@ export default function HomePage() {
       const tilesKey = process.env.NEXT_PUBLIC_GOONG_MAP_KEY || "hkBRTOlzhKDE79Z6WGwQCgI9MTgsGXyUNC7jS8i3";
       goongjs.accessToken = tilesKey;
 
-      if (!map) {
+      if (!map && document.getElementById("goong-map-nav")) {
         const mapInstance = new goongjs.Map({
-          container: "goong-map",
+          container: "goong-map-nav",
           style: "https://tiles.goong.io/assets/goong_map_web.json",
-          center: [106.36135, 10.35746],
+          center: [106.8008, 10.8782],
           zoom: 16.03,
           pitch: 55,
           bearing: -15,
@@ -714,15 +917,15 @@ export default function HomePage() {
 
   // Map resize handler on activeTab changes
   useEffect(() => {
-    if (activeTab === "home" && map) {
+    if (activeTab === "navigation" && map) {
       const timer = setTimeout(() => {
         map.resize();
-      }, 100);
+      }, 150);
       return () => clearTimeout(timer);
     }
   }, [activeTab, map]);
 
-  // Render Markers on Map - Only show navigation start/end when active
+  // Render Markers on Map
   const renderMarkers = useCallback(() => {
     if (!map) return;
     // @ts-ignore
@@ -734,37 +937,39 @@ export default function HomePage() {
     heroMarkersRef.current.forEach(m => m.remove());
     heroMarkersRef.current = [];
 
-    // Only show start (bike) and destination markers when navigating
-    if (isNavigating && navPoints.length >= 2) {
-      // Start marker (bike icon - blue dot)
-      const startEl = document.createElement("div");
-      startEl.innerHTML = `
-        <div style="width:32px;height:32px;border-radius:50%;border:2.5px solid #3b82f6;background:white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(59,130,246,0.3), 0 0 0 4px rgba(59,130,246,0.15);">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5V14l-3-3 4-3 2 3h2"/></svg>
-        </div>
-      `;
-      const startMarker = new goongjs.Marker(startEl)
-        .setLngLat([navPoints[0].lng, navPoints[0].lat])
-        .addTo(map);
-      markersRef.current.push(startMarker);
+    // Draw active incidents as markers
+    incidents.forEach(inc => {
+      if (inc.status === "ACTIVE" || inc.status === "APPROVED") {
+        let color = "#ef4444"; // Red for blockages
+        if (inc.riskLevel === "MEDIUM") color = "#f97316";
+        else if (inc.riskLevel === "LOW") color = "#3b82f6";
 
-      // Destination marker (red pin dot)
-      const endEl = document.createElement("div");
-      endEl.innerHTML = `
-        <div style="width:32px;height:32px;border-radius:50%;border:2.5px solid #ef4444;background:white;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(239,68,68,0.3), 0 0 0 4px rgba(239,68,68,0.15);">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-        </div>
-      `;
-      const endMarker = new goongjs.Marker(endEl)
-        .setLngLat([navPoints[navPoints.length - 1].lng, navPoints[navPoints.length - 1].lat])
-        .addTo(map);
-      markersRef.current.push(endMarker);
-    }
-  }, [map, mapHero, isNavigating, navPoints]);
+        const el = document.createElement("div");
+        el.className = "cursor-pointer hover:scale-110 transition-transform";
+        el.innerHTML = `
+          <div style="width:34px;height:34px;border-radius:50%;background:white;border:3px solid ${color};display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,0.25);">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+        `;
+
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          setSelectedIncident(inc);
+        });
+
+        const m = new goongjs.Marker({ element: el, anchor: "center" })
+          .setLngLat([inc.longitude, inc.latitude])
+          .addTo(map);
+
+        markersRef.current.push(m);
+      }
+    });
+
+  }, [map, incidents]);
 
   useEffect(() => {
     renderMarkers();
-  }, [map, mapHero, isNavigating, navPoints, renderMarkers]);
+  }, [map, incidents, renderMarkers]);
 
   // Image upload handler
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -783,10 +988,10 @@ export default function HomePage() {
       if (res.ok) {
         const data = await res.json();
         setReportImage(data.imageUrl);
-        toast.success("Image uploaded!");
+        toast.success("Đã tải ảnh lên!");
       }
     } catch (err) {
-      toast.error("Error uploading image");
+      toast.error("Lỗi tải ảnh");
     } finally {
       setUploading(false);
     }
@@ -796,7 +1001,7 @@ export default function HomePage() {
   const handleReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reportDesc) {
-      toast.error("Please add a description");
+      toast.error("Vui lòng chọn thông tin mô tả sự cố");
       return;
     }
 
@@ -814,75 +1019,126 @@ export default function HomePage() {
       });
 
       if (res.ok) {
-        toast.success("Report submitted!");
+        toast.success("Báo cáo thành công! +10 điểm.");
         setIsReportOpen(false);
         setReportDesc("");
         setReportImage(null);
         fetchIncidents();
+        fetchUserProfile();
         if (session?.user?.role === "ADMIN") {
           fetchPendingReports();
         }
       }
     } catch (e) {
-      toast.error("Submission failed");
+      toast.error("Báo cáo thất bại");
     }
   };
 
-  // Start Navigation simulation
-  const handleStartNavigation = () => {
+  // Start Navigation with dynamic route recalculation & active incident avoidance detour
+  const handleStartNavigation = async () => {
     if (!map) return;
     setNavStep("routing");
 
-    const points = [
-      { lng: 106.7719, lat: 10.8507 },
-      { lng: 106.7735, lat: 10.8512 },
-      { lng: 106.7745, lat: 10.8525 },
-      { lng: 106.7760, lat: 10.8530 }
-    ];
-    setNavPoints(points);
+    const start = `${startCoords.lat},${startCoords.lng}`;
+    const dest = destCoords ? `${destCoords.lat},${destCoords.lng}` : "10.8778,106.8005"; // Nhà khách ĐHQG fallback
 
-    if (map.getSource("route-source")) {
-      map.getSource("route-source").setData({
-        type: "Feature",
-        properties: {},
-        geometry: {
-          type: "LineString",
-          coordinates: points.map(p => [p.lng, p.lat])
-        }
-      });
-    } else {
-      map.addSource("route-source", {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "LineString",
-            coordinates: points.map(p => [p.lng, p.lat])
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_GOONG_API_KEY || "2X3t5rZDLQiFHgLAdeGC8tkz2RZdTwfwMDtyFYSm";
+      const res = await fetch(
+        `https://rsapi.goong.io/direction?origin=${start}&destination=${dest}&vehicle=bike&alternatives=true&api_key=${apiKey}`
+      );
+      
+      if (!res.ok) {
+        toast.error("Lỗi tìm hướng di chuyển từ Goong Maps");
+        return;
+      }
+
+      const data = await res.json();
+      if (!data.routes || data.routes.length === 0) {
+        toast.error("Không tìm thấy đường đi.");
+        return;
+      }
+
+      const primaryRoute = data.routes[0];
+      const polyline0 = primaryRoute.overview_polyline?.points;
+      if (!polyline0) return;
+      const primaryPoints = decodePolyline(polyline0);
+
+      // Check distance to all active incidents
+      let isBlocked = false;
+      let blockingIncident = null;
+
+      for (const incident of incidents) {
+        if (incident.status === "ACTIVE" || incident.status === "APPROVED") {
+          if (incident.streetCoords) {
+            try {
+              const blockedCoords: [number, number][] = JSON.parse(incident.streetCoords);
+              for (const pt of primaryPoints) {
+                for (const bPt of blockedCoords) {
+                  const distance = getDistance(pt[1], pt[0], bPt[1], bPt[0]);
+                  if (distance < 0.1) { // 100 meters
+                    isBlocked = true;
+                    blockingIncident = incident;
+                    break;
+                  }
+                }
+                if (isBlocked) break;
+              }
+            } catch (e) {
+              console.error("Failed to parse incident streetCoords:", e);
+            }
+          } else {
+            // Fallback to single coordinate proximity
+            for (const pt of primaryPoints) {
+              const distance = getDistance(pt[1], pt[0], incident.latitude, incident.longitude);
+              if (distance < 0.5) { // 500m
+                isBlocked = true;
+                blockingIncident = incident;
+                break;
+              }
+            }
           }
         }
-      });
+        if (isBlocked) break;
+      }
 
-      map.addLayer({
-        id: "route-layer",
-        type: "line",
-        source: "route-source",
-        layout: {
-          "line-join": "round",
-          "line-cap": "round"
-        },
-        paint: {
-          "line-color": "#3b82f6",
-          "line-width": 8,
-          "line-opacity": 0.8
+      // Distance helper (Haversine formula in km)
+      function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+        const R = 6371; // km
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+      }
+
+      if (isBlocked && data.routes.length > 1) {
+        const altRoute = data.routes[1];
+        const polyline1 = altRoute.overview_polyline?.points;
+        if (polyline1) {
+          const altPoints = decodePolyline(polyline1);
+          setFloodedStreetCoords(primaryPoints);
+          setAlternativeStreetCoords(altPoints);
+          setNavPoints(altPoints.map(p => ({ lat: p[1], lng: p[0] })));
+          toast.warning(`Phát hiện sự cố ngập úng trên đường đi. Đã thiết lập lộ trình tránh!`);
         }
-      });
-    }
+      } else {
+        setFloodedStreetCoords([]);
+        setAlternativeStreetCoords(primaryPoints);
+        setNavPoints(primaryPoints.map(p => ({ lat: p[1], lng: p[0] })));
+      }
 
-    navRouteLayerRef.current = true;
+      navRouteLayerRef.current = true;
+    } catch (e) {
+      console.error(e);
+      toast.error("Lỗi lấy thông tin định tuyến.");
+    }
   };
 
   const triggerNavStart = async () => {
+    if (navPoints.length < 2) return;
     try {
       const res = await fetch("/api/navigation", {
         method: "POST",
@@ -901,10 +1157,21 @@ export default function HomePage() {
         setNavSessionId(data.session.id);
         setNavStep("active");
         setIsNavigating(true);
-        toast.info("Navigation active!");
+        toast.info("Bắt đầu điều hướng tránh ngập!");
+
+        // Start 3D First Person Map Camera Follow
+        if (map && alternativeStreetCoords.length > 0) {
+          map.easeTo({
+            center: alternativeStreetCoords[0],
+            zoom: 18.5,
+            pitch: 65,
+            bearing: -15,
+            duration: 1000
+          });
+        }
       }
     } catch (e) {
-      toast.error("Failed to start navigation");
+      toast.error("Lỗi kích hoạt điều hướng");
     }
   };
 
@@ -925,11 +1192,22 @@ export default function HomePage() {
 
       if (res.ok) {
         const data = await res.json();
-        toast.success(`Arrived! Recieved +${data.pointsAwarded} credits.`);
+        toast.success(`Đã đến điểm hẹn! Nhận được +${data.pointsAwarded} điểm GoSafe.`);
         setNavStep("idle");
         setIsNavigating(false);
         setNavSessionId(null);
+        setIsFeedbackOpen(false);
         fetchUserProfile();
+
+        // Reset camera to default center/tilt
+        if (map) {
+          map.easeTo({
+            pitch: 55,
+            bearing: -15,
+            zoom: 16.03,
+            duration: 1200
+          });
+        }
 
         if (map && map.getLayer("route-layer")) {
           map.removeLayer("route-layer");
@@ -938,7 +1216,7 @@ export default function HomePage() {
         }
       }
     } catch (e) {
-      toast.error("Error completing navigation");
+      toast.error("Không thể ghi nhận kết thúc chuyến đi");
     }
   };
 
@@ -952,19 +1230,19 @@ export default function HomePage() {
       });
       if (res.ok) {
         setConsent(nextConsent);
-        toast.success(nextConsent ? "Consent enabled." : "Consent revoked.");
+        toast.success(nextConsent ? "Đã bật chia sẻ vị trí." : "Đã tắt chia sẻ vị trí.");
         if (session?.user?.role === "ADMIN") {
           fetchAdminUsers();
         }
       }
     } catch (e) {
-      toast.error("Failed to update privacy");
+      toast.error("Lỗi cập nhật quyền riêng tư");
     }
   };
 
   const handleVoucherExchange = async (voucherId: string, requiredPoints: number) => {
     if (points < requiredPoints) {
-      toast.error("Not enough points!");
+      toast.error("Không đủ điểm!");
       return;
     }
 
@@ -976,12 +1254,12 @@ export default function HomePage() {
       });
 
       if (res.ok) {
-        toast.success("Voucher claimed!");
+        toast.success("Đổi voucher thành công!");
         fetchUserProfile();
         fetchVouchers();
       }
     } catch (e) {
-      toast.error("Exchange failed");
+      toast.error("Lỗi giao dịch đổi điểm");
     }
   };
 
@@ -1156,41 +1434,41 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen relative flex flex-col overflow-x-hidden text-foreground font-normal">
+    <div className="min-h-screen relative flex flex-col overflow-x-hidden text-foreground font-normal pb-24 md:pb-0 bg-background">
       <Toaster position="top-center" richColors />
 
       {/* Background Grid */}
-      <div className="absolute z-[-1] flex h-[350px] sm:h-[450px] lg:h-[600px] w-full flex-col items-center justify-center rounded-lg overflow-hidden">
-        <GridPattern
-          squares={[
-            [4, 4],
-            [5, 1],
-            [8, 2],
-            [5, 3],
-            [5, 5],
-            [10, 10],
-            [12, 15],
-            [15, 10],
-            [10, 15],
-            [15, 10],
-            [10, 15],
-            [15, 10],
-          ]}
-          className={cn(
-            "[mask-image:radial-gradient(600px_circle_at_bottom_right,white,transparent)]",
-            "inset-x-0 inset-y-[-30%] h-[200%] skew-y-12"
-          )}
-        />
-      </div>
+      {activeTab === "home" && (
+        <div className="absolute z-[-1] flex h-[350px] sm:h-[450px] lg:h-[600px] w-full flex-col items-center justify-center rounded-lg overflow-hidden">
+          <GridPattern
+            squares={[
+              [4, 4],
+              [5, 1],
+              [8, 2],
+              [5, 3],
+              [5, 5],
+              [10, 10],
+              [12, 15],
+              [15, 10],
+              [10, 15],
+              [15, 10],
+              [10, 15],
+              [15, 10],
+            ]}
+            className={cn(
+              "[mask-image:radial-gradient(600px_circle_at_bottom_right,white,transparent)]",
+              "inset-x-0 inset-y-[-30%] h-[200%] skew-y-12"
+            )}
+          />
+        </div>
+      )}
 
       {/* Navbar */}
-      <Navbar />
+      {activeTab !== "navigation" && <Navbar />}
 
-      {/* Hero Section - Split Screen layout */}
+      {/* Hero Section */}
       {activeTab === "home" && (
         <section className="relative z-10 min-h-[calc(100vh-4rem)] flex flex-col lg:flex-row items-stretch w-full overflow-hidden border-b border-border/40">
-
-          {/* Grid Pattern Background visible behind both columns */}
           <div 
             className="absolute inset-0 z-0 overflow-hidden"
             style={{
@@ -1210,28 +1488,26 @@ export default function HomePage() {
             />
           </div>
 
-          {/* Left Column: Heading and description */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, ease }}
             className="w-full lg:w-1/2 flex flex-col justify-center relative pt-52 sm:pt-60 lg:pt-16 pb-16 lg:py-16 px-6 sm:px-12 lg:pl-[calc((100vw-min(100vw,1400px))/2+2rem)] lg:pr-16 z-10"
           >
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight leading-tight mb-6 text-foreground">
-              <AuroraText className="text-5xl sm:text-6xl lg:text-7xl font-normal tracking-tight inline-block mb-1">GoSafe</AuroraText> <br /> Fast, Smart & Safe
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight leading-tight mb-6 text-foreground font-Outfit">
+              <AuroraText className="text-5xl sm:text-6xl lg:text-7xl font-normal tracking-tight inline-block mb-1">GoSafe</AuroraText> <br /> Fast, Smart &amp; Safe
             </h1>
 
             <p className="text-base sm:text-lg lg:text-xl font-medium text-foreground leading-relaxed mb-8 max-w-lg">
               Built for the community, driving sustainable cities.
             </p>
 
-            {/* Action Area inside Hero */}
             <div className="max-w-md w-full">
               {!session ? (
                 <div className="flex flex-col gap-3 items-start justify-center">
                   <Button
                     onClick={() => signIn("google")}
-                    className="rounded-full px-6 py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium flex items-center gap-2 border-0 shadow transition-all"
+                    className="rounded-full px-6 py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium flex items-center gap-2 border-0 shadow transition-all cursor-pointer"
                   >
                     <svg className="w-4 h-4 mr-1" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
                       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -1244,7 +1520,7 @@ export default function HomePage() {
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center gap-3">
-                  <Button onClick={scrollToMap} className="rounded-full px-6 py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium flex items-center gap-2 border-0 shadow transition-all">
+                  <Button onClick={scrollToMap} className="rounded-full px-6 py-5 bg-primary hover:bg-primary/90 text-primary-foreground font-medium flex items-center gap-2 border-0 shadow transition-all cursor-pointer">
                     <Map className="w-4 h-4" /> Go to Live Map
                   </Button>
                 </div>
@@ -1252,16 +1528,12 @@ export default function HomePage() {
             </div>
           </motion.div>
 
-          {/* Right Column: Premium Banner Image */}
           <motion.div
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, ease, delay: 0.15 }}
             className="w-full lg:w-1/2 lg:absolute lg:right-0 lg:top-0 lg:bottom-0 relative h-[380px] lg:h-auto overflow-hidden bg-transparent z-10"
           >
-            {/* Glowing background radial */}
-            <div className="absolute inset-0 z-10 rounded-full filter blur-3xl" />
-
             <img
               src="/assets/banner.png"
               alt="GoSafe City Map Overview"
@@ -1278,13 +1550,19 @@ export default function HomePage() {
         onLoad={() => setMapLoaded(true)}
       />
 
-      {/* Map Section - Below Hero - OPEN TO EVERYONE (No session check) */}
-      {(activeTab === "home" || activeTab === "navigation") && (
-        <section id="map-section" className="pt-20 pb-0 bg-transparent">
+      {/* Map Section - Kept Mounted to fix tab-switching issue */}
+      <section 
+        id="map-section" 
+        className={cn(
+          "pb-0 bg-transparent transition-all duration-300 flex flex-col relative",
+          (activeTab === "home" || activeTab === "navigation") ? "block opacity-100" : "hidden opacity-0 pointer-events-none",
+          activeTab === "navigation" ? "pt-0 h-screen w-screen" : "pt-20"
+        )}
+      >
+        {activeTab !== "navigation" && (
           <div className="container">
-
             <div className="text-left mb-10">
-              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-foreground">
+              <h2 className="text-4xl sm:text-5xl lg:text-6xl font-normal tracking-tight text-foreground font-Outfit">
                 Our <AuroraText>GoSafe</AuroraText> Map
               </h2>
               <p className="text-base sm:text-lg lg:text-xl font-medium text-foreground max-w-2xl mt-3 leading-relaxed">
@@ -1292,209 +1570,366 @@ export default function HomePage() {
               </p>
             </div>
           </div>
+        )}
 
-          {/* The map card - ALWAYS RENDERED (Full Width, No Padding) */}
-          <div className="w-full border-y border-border/50 bg-card shadow-2xl relative flex flex-col h-[450px] sm:h-[600px] lg:h-[700px] p-0 gap-0 overflow-hidden">
+        {/* Map Container */}
+        <div className={cn(
+          "w-full border-y border-border/50 bg-card shadow-2xl relative flex flex-col p-0 gap-0 overflow-hidden transition-all duration-300",
+          activeTab === "navigation" 
+            ? "fixed inset-0 z-30 h-screen w-screen border-none" 
+            : "h-[450px] sm:h-[600px] lg:h-[700px]"
+        )}>
 
-            {/* Map rendering wrapper */}
-            <div className="flex-1 relative overflow-hidden h-full w-full">
+          <div className="flex-1 relative overflow-hidden h-full w-full">
 
-              {/* Navigation Search & Detour Control Card */}
-              {activeTab === "navigation" && (
-                <div className="absolute top-4 left-4 z-20 w-80 bg-background border border-border rounded-3xl p-5 flex flex-col gap-4 text-xs">
-                  <div>
-                    <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                      <Compass className="w-4 h-4 text-primary animate-pulse" /> Điều hướng tránh ngập VNU-HCM
+            {/* Navigation Tab Panels */}
+            {activeTab === "navigation" && (
+              <>
+                {/* 1. TOP SEARCH PANEL (Mobile: fixed top, Desktop: absolute left card top portion) */}
+                <div className="fixed top-0 left-0 right-0 z-45 bg-background/95 backdrop-blur-md border-b border-border p-4 pb-5 flex flex-col gap-3.5 shadow-md md:absolute md:top-4 md:left-4 md:right-auto md:w-80 md:rounded-3xl md:border md:shadow-2xl md:p-5">
+                  <div className="hidden md:block">
+                    <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5 font-Outfit">
+                      <Compass className="w-4 h-4 text-primary animate-pulse" /> Điều hướng tránh ngập GoSafe
                     </h3>
-                    <p className="text-[10px] text-muted-foreground mt-1">Tìm đường đi tối ưu tránh mọi điểm tắc nghẽn, ngập úng trong Đại học Quốc gia.</p>
+                    <p className="text-[10px] text-muted-foreground mt-1 font-semibold">Nhập địa điểm để tự động thiết lập lộ trình tránh các điểm ngập nước.</p>
                   </div>
 
-                  <div className="flex flex-col gap-2 bg-card p-3 rounded-2xl border border-border/50 font-semibold">
-                    <span className="text-[9px] font-bold text-muted-foreground uppercase leading-none">Vị trí hiện tại:</span>
-                    <span className="text-foreground text-[11px] flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-primary" /> Đại học Quốc tế (VNU-HCM)</span>
+                  {/* Start Location Input */}
+                  <div className="flex flex-col gap-1 relative">
+                    <label className="text-[9px] font-bold text-muted-foreground uppercase leading-none mb-1">Điểm khởi hành:</label>
+                    <input
+                      type="text"
+                      value={startQuery}
+                      onChange={(e) => {
+                        skipStartQueryRef.current = false;
+                        setStartQuery(e.target.value);
+                      }}
+                      className="p-3 border rounded-2xl bg-muted/20 border-border text-xs font-bold text-foreground outline-none focus:border-primary w-full"
+                      placeholder="Tìm kiếm điểm khởi hành..."
+                    />
+
+                    {startSuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-50 bg-background border border-border rounded-2xl mt-1 shadow-2xl max-h-48 overflow-y-auto font-semibold">
+                        {startSuggestions.map((suggestion) => (
+                          <div
+                            key={suggestion.place_id}
+                            onClick={() => handleSelectStartSuggestion(suggestion)}
+                            className="p-3 hover:bg-muted/50 cursor-pointer border-b last:border-b-0 border-border/50 text-[11px] leading-snug"
+                          >
+                            {suggestion.description}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Proposed Starting Points */}
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          skipStartQueryRef.current = true;
+                          setStartCoords(userCoords);
+                          const apiKey = process.env.NEXT_PUBLIC_GOONG_API_KEY || "2X3t5rZDLQiFHgLAdeGC8tkz2RZdTwfwMDtyFYSm";
+                          fetch(`https://rsapi.goong.io/Geocode?api_key=${apiKey}&latlng=${userCoords.lat},${userCoords.lng}`)
+                            .then(res => res.json())
+                            .then(data => {
+                              const address = data.results?.[0]?.formatted_address;
+                              if (address) setStartQuery(address);
+                              else setStartQuery(`Vị trí định vị GPS (${userCoords.lat.toFixed(4)}, ${userCoords.lng.toFixed(4)})`);
+                            })
+                            .catch(() => {
+                              setStartQuery(`Vị trí định vị GPS (${userCoords.lat.toFixed(4)}, ${userCoords.lng.toFixed(4)})`);
+                            });
+                        }}
+                        className="px-2 py-1 bg-muted/40 border border-border/50 text-[9px] font-bold rounded-lg hover:bg-muted/70 transition-colors cursor-pointer text-foreground flex items-center gap-1"
+                      >
+                        <MapPin className="w-2.5 h-2.5 text-primary" /> GPS của bạn
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          skipStartQueryRef.current = true;
+                          setStartCoords({ lat: 10.8782, lng: 106.8008 });
+                          setStartQuery("Marie Curie, Đông Hòa");
+                        }}
+                        className="px-2 py-1 bg-muted/40 border border-border/50 text-[9px] font-bold rounded-lg hover:bg-muted/70 transition-colors cursor-pointer text-foreground"
+                      >
+                        🏫 Marie Curie
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          skipStartQueryRef.current = true;
+                          setStartCoords({ lat: 10.8825, lng: 106.8068 });
+                          setStartQuery("Ký túc xá Khu B ĐHQG");
+                        }}
+                        className="px-2 py-1 bg-muted/40 border border-border/50 text-[9px] font-bold rounded-lg hover:bg-muted/70 transition-colors cursor-pointer text-foreground"
+                      >
+                        🏢 KTX Khu B ĐHQG
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex flex-col gap-1">
+                  {/* Destination Location Input */}
+                  <div className="flex flex-col gap-1 relative">
                     <label className="text-[9px] font-bold text-muted-foreground uppercase leading-none mb-1">Điểm đến:</label>
                     <input
                       type="text"
-                      defaultValue="Nhà khách Đại học Quốc gia"
-                      className="p-3 border rounded-2xl bg-muted/20 border-border text-xs font-bold text-foreground outline-none focus:border-primary"
-                      placeholder="Nhập địa điểm đến..."
+                      value={destQuery}
+                      onChange={(e) => {
+                        skipDestQueryRef.current = false;
+                        setDestQuery(e.target.value);
+                      }}
+                      className="p-3 border rounded-2xl bg-muted/20 border-border text-xs font-bold text-foreground outline-none focus:border-primary w-full"
+                      placeholder="Tìm kiếm địa điểm đến..."
                     />
+
+                    {destSuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 z-50 bg-background border border-border rounded-2xl mt-1 shadow-2xl max-h-48 overflow-y-auto font-semibold">
+                        {destSuggestions.map((suggestion) => (
+                          <div
+                            key={suggestion.place_id}
+                            onClick={() => handleSelectDestSuggestion(suggestion)}
+                            className="p-3 hover:bg-muted/50 cursor-pointer border-b last:border-b-0 border-border/50 text-[11px] leading-snug"
+                          >
+                            {suggestion.description}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
+
+                  {/* Desktop Only Actions Panel */}
+                  <div className="hidden md:flex flex-col gap-3 mt-2">
+                    <Button
+                      onClick={handleStartNavigation}
+                      disabled={isNavigating}
+                      className="h-10 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold border-0 text-xs w-full cursor-pointer"
+                    >
+                      {isNavigating ? "Đang thiết lập lộ trình..." : "Tìm đường đi tối ưu"}
+                    </Button>
+
+                    <Button
+                      onClick={() => {
+                        if (!session) {
+                          toast.error("Vui lòng đăng nhập!");
+                          return;
+                        }
+                        setIsReportOpen(true);
+                      }}
+                      variant="outline"
+                      className="h-10 rounded-2xl border-border bg-background hover:bg-accent text-foreground font-bold text-xs w-full flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      🚩 Báo cáo sự cố khẩn cấp
+                    </Button>
+
+                    {isNavigating && floodedStreetCoords.length > 0 && (
+                      <div className="flex flex-col gap-2.5 p-4 rounded-2xl bg-orange-500/10 text-orange-600 border border-orange-500/20 font-bold leading-relaxed">
+                        <div className="flex items-center gap-1.5">
+                          <AlertTriangle className="w-4 h-4 text-orange-500 animate-bounce" />
+                          <span>Phát hiện vùng ngập chắn lối</span>
+                        </div>
+                        <p className="text-[10px] font-semibold text-foreground leading-normal">GoSafe tự động đề xuất vòng qua để tránh vùng ngập sâu nguy hiểm.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. BOTTOM ACTION PANEL (Mobile: fixed bottom above rounded navigation bar, Desktop: hidden) */}
+                <div className="fixed bottom-26 left-4 right-4 z-40 bg-background/95 backdrop-blur-md border border-border p-4 flex flex-col gap-2 shadow-xl rounded-2xl md:hidden">
+                  <Button
+                    onClick={handleStartNavigation}
+                    disabled={isNavigating}
+                    className="h-11 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold border-0 text-xs w-full cursor-pointer"
+                  >
+                    {isNavigating ? "Đang thiết lập lộ trình..." : "Tìm đường đi tối ưu"}
+                  </Button>
 
                   <Button
                     onClick={() => {
-                      handleStartNavigation();
-                    }}
-                    disabled={isNavigating}
-                    className="h-10 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold border-0 text-xs mt-1"
-                  >
-                    {isNavigating ? "Đang điều hướng..." : "Bắt đầu tìm đường"}
-                  </Button>
-
-                  {isNavigating && (
-                    <div className="flex flex-col gap-3 p-4 rounded-2xl bg-orange-500/10 text-orange-600 border border-orange-500/20 font-semibold leading-relaxed">
-                      <div className="flex items-center gap-1.5 font-bold">
-                        <span>Phát hiện ngập Võ Trường Toản</span>
-                      </div>
-                      <p className="text-[10px] font-semibold text-foreground">GoSafe tự động điều chỉnh hướng di chuyển vòng qua đường nội bộ VNU để tránh vùng ngập sâu 45cm.</p>
-                      <div className="text-[9px] text-muted-foreground border-t pt-1.5 border-orange-500/10 mt-1 flex justify-between font-bold">
-                        <span>Thời gian: ~3 phút</span>
-                        <span>Khoảng cách: 750m</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Navigation simulation widget */}
-              {navStep !== "idle" && (
-                <div className="absolute top-3 right-3 z-20 p-3 rounded-xl bg-background border border-border shadow-lg w-[240px] text-[10px] flex flex-col gap-2 border-border/50">
-                  <div className="flex items-center justify-between font-medium">
-                    <span className="flex items-center gap-1 font-bold"><Navigation className="w-3.5 h-3.5 text-primary animate-pulse" /> Detour Guidance</span>
-                    <Button variant="ghost" size="icon" onClick={() => {
-                      setNavStep("idle");
-                      if (map && map.getLayer("route-layer")) {
-                        map.removeLayer("route-layer");
-                        map.removeSource("route-source");
-                      }
-                    }} className="h-5 w-5 rounded-full"><XCircle className="w-3 h-3" /></Button>
-                  </div>
-                  {navStep === "routing" ? (
-                    <>
-                      <p className="text-orange-500 bg-orange-500/10 p-1.5 rounded font-semibold border border-orange-500/20">
-                        Flooding detected. Rerouted automatically.
-                      </p>
-                      <Button onClick={triggerNavStart} className="w-full h-7 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-[10px] border-0">
-                        Accept Detour
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-green-500 bg-green-500/10 p-1.5 rounded font-semibold border border-green-500/20">
-                        Active guidance. Bypassing blockages.
-                      </p>
-                      <Button onClick={() => handleArriveDestination(5, "Hazard bypassed successfully.")} className="w-full h-7 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-[10px] border-0">
-                        Arrived (+5 credits)
-                      </Button>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Details Popup when Marker is selected */}
-              {selectedIncident && (
-                <div className="absolute bottom-3 left-3 right-3 z-20 p-3 rounded-xl bg-background border border-border shadow-2xl flex flex-col gap-2 text-[10px] border-border/50">
-                  <div className="flex items-center justify-between border-b pb-1 border-border/50">
-                    <span className="font-bold capitalize">Alert: {selectedIncident.category === "FLOODING" ? "Flooding" : selectedIncident.category === "ACCIDENT" ? "Accident" : selectedIncident.category === "DEBRIS" ? "Road Debris" : "Pothole"}</span>
-                    <Button variant="ghost" size="icon" onClick={() => setSelectedIncident(null)} className="h-5 w-5 rounded-full"><XCircle className="w-3.5 h-3.5" /></Button>
-                  </div>
-                  <div className="flex gap-2">
-                    {selectedIncident.reports?.[0]?.imageUrl && (
-                      <img src={selectedIncident.reports[0].imageUrl} alt="attachment" className="w-12 h-12 object-cover rounded-lg border border-border/50" />
-                    )}
-                    <div className="flex-1">
-                      <p className="font-bold">{selectedIncident.locationName}</p>
-                      <p className="text-foreground font-semibold">{selectedIncident.description}</p>
-                    </div>
-                  </div>
-                  <div className="bg-muted/50 p-2 rounded-lg text-foreground font-semibold leading-normal border text-[9px] border-border/50">
-                    <strong>AI Recommendation: </strong> {selectedIncident.recommendation}
-                  </div>
-                  <div className="flex items-center justify-end gap-2 border-t pt-1.5 border-border/50">
-                    <span className="text-[9px] text-foreground mr-auto">Is this incident cleared?</span>
-                    <Button size="sm" variant="outline" onClick={async () => {
                       if (!session) {
-                        toast.error("Please sign in to verify incident!");
+                        toast.error("Vui lòng đăng nhập!");
                         return;
                       }
-                      try {
-                        await fetch("/api/navigation", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ action: "arrive", sessionId: "feedback", rating: 5, comment: "Incident cleared" }),
-                        });
-                        toast.success("Feedback recorded! +5 credits earned.");
-                        fetchUserProfile();
-                        setSelectedIncident(null);
-                      } catch (e) { }
-                    }} className="h-6 text-[8px] font-bold rounded-lg px-2 border-border/50"><CheckCircle className="w-3 h-3 text-green-500 mr-1" /> Yes, Cleared (+5)</Button>
+                      setIsReportOpen(true);
+                    }}
+                    variant="outline"
+                    className="h-10 rounded-2xl border-border bg-background hover:bg-accent text-foreground font-bold text-xs w-full flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    🚩 Báo cáo sự cố khẩn cấp
+                  </Button>
+
+                  {isNavigating && floodedStreetCoords.length > 0 && (
+                    <div className="flex flex-col gap-2 p-3 rounded-2xl bg-orange-500/10 text-orange-600 border border-orange-500/20 font-bold leading-relaxed">
+                      <div className="flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4 text-orange-500 animate-bounce" />
+                        <span>Phát hiện vùng ngập chắn lối</span>
+                      </div>
+                      <p className="text-[9px] font-semibold text-foreground leading-normal">GoSafe tự động đề xuất vòng qua để tránh vùng ngập sâu nguy hiểm.</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Navigation simulation Guidance Widget */}
+            {navStep !== "idle" && (
+              <div className="absolute top-3 right-3 z-40 p-3 rounded-2xl bg-background border border-border shadow-2xl w-[250px] text-[10px] flex flex-col gap-2 border-border/50">
+                <div className="flex items-center justify-between font-bold">
+                  <span className="flex items-center gap-1"><Navigation className="w-3.5 h-3.5 text-primary animate-pulse" /> Detour Guidance</span>
+                  <Button variant="ghost" size="icon" onClick={() => {
+                    setNavStep("idle");
+                    if (map && map.getLayer("route-layer")) {
+                      map.removeLayer("route-layer");
+                      map.removeSource("route-source");
+                    }
+                  }} className="h-5 w-5 rounded-full cursor-pointer"><XCircle className="w-3 h-3" /></Button>
+                </div>
+                {navStep === "routing" ? (
+                  <>
+                    <p className="text-orange-650 bg-orange-500/10 p-2 rounded-xl font-bold border border-orange-500/20">
+                      Rerouting calculated successfully.
+                    </p>
+                    <Button onClick={triggerNavStart} className="w-full h-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[10px] border-0 cursor-pointer">
+                      Chấp nhận và Bắt đầu đi
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-green-600 bg-green-500/10 p-2 rounded-xl font-bold border border-green-500/20">
+                      Active guidance. First-person view tracking.
+                    </p>
+                    <Button onClick={() => setIsFeedbackOpen(true)} className="w-full h-8 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[10px] border-0 cursor-pointer">
+                      Đã đến điểm hẹn (+5 pts)
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Details Popup when Marker is selected */}
+            {selectedIncident && (
+              <div className="absolute bottom-24 left-4 right-4 md:right-auto md:w-80 z-40 p-4 rounded-3xl bg-background border border-border shadow-2xl flex flex-col gap-2.5 text-[10px] border-border/50">
+                <div className="flex items-center justify-between border-b pb-1.5 border-border/50">
+                  <span className="font-extrabold capitalize text-xs">Cảnh báo: {selectedIncident.category === "FLOODING" ? "Ngập nước" : selectedIncident.category === "ACCIDENT" ? "Tai nạn" : selectedIncident.category === "DEBRIS" ? "Vật cản đường" : "Hố ga hư hỏng"}</span>
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedIncident(null)} className="h-5 w-5 rounded-full cursor-pointer"><XCircle className="w-4 h-4" /></Button>
+                </div>
+                <div className="flex gap-2">
+                  {selectedIncident.reports?.[0]?.imageUrl && (
+                    <img src={selectedIncident.reports[0].imageUrl} alt="attachment" className="w-16 h-16 object-cover rounded-xl border border-border/50" />
+                  )}
+                  <div className="flex-1 font-semibold text-slate-800">
+                    <p className="font-bold text-foreground">{selectedIncident.locationName}</p>
+                    <p className="mt-0.5 leading-normal">{selectedIncident.description}</p>
                   </div>
                 </div>
-              )}
+                <div className="bg-muted/50 p-2.5 rounded-xl text-foreground font-semibold leading-normal border text-[9px] border-border/50">
+                  <strong>Khuyến nghị từ GoSafe AI: </strong> {selectedIncident.recommendation}
+                </div>
+                <div className="flex items-center justify-end gap-2 border-t pt-2 border-border/50">
+                  <span className="text-[9px] text-muted-foreground mr-auto">Sự cố đã được dọn dẹp?</span>
+                  <Button size="sm" variant="outline" onClick={async () => {
+                    if (!session) {
+                      toast.error("Vui lòng đăng nhập!");
+                      return;
+                    }
+                    try {
+                      await fetch("/api/navigation", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "arrive", sessionId: "feedback", rating: 5, comment: "Incident cleared" }),
+                      });
+                      toast.success("Ghi nhận! Bạn nhận được +5 điểm.");
+                      fetchUserProfile();
+                      setSelectedIncident(null);
+                    } catch (e) { }
+                  }} className="h-7 text-[8px] font-bold rounded-lg px-2 border-border/50 cursor-pointer bg-white"><CheckCircle className="w-3 h-3 text-green-500 mr-1" /> Xác nhận Dọn dẹp (+5)</Button>
+                </div>
+              </div>
+            )}
 
-              {/* Floating Map Actions */}
-              <div className="absolute bottom-4 right-4 z-20 flex flex-col gap-2">
+            {/* Floating Map Action Buttons */}
+            {activeTab !== "navigation" && (
+              <div className="absolute bottom-4 right-4 z-40 flex flex-col gap-2">
                 <Button onClick={() => {
                   if (!session) {
-                    toast.error("Please sign in to use detour routing!");
+                    toast.error("Vui lòng đăng nhập!");
                     return;
                   }
+                  setActiveTab("navigation");
                   handleStartNavigation();
-                }} disabled={isNavigating} className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg flex items-center justify-center border-0 hover:scale-105 transition-transform">
+                }} disabled={isNavigating} className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg flex items-center justify-center border-0 hover:scale-105 transition-transform cursor-pointer">
                   <Navigation className="w-4.5 h-4.5" />
                 </Button>
                 <Button onClick={() => {
                   if (!session) {
-                    toast.error("Please sign in to report hazards!");
+                    toast.error("Vui lòng đăng nhập!");
                     return;
                   }
                   setIsReportOpen(true);
-                }} variant="outline" className="h-10 w-10 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform border border-border bg-background hover:bg-accent text-foreground">
+                }} variant="outline" className="h-10 w-10 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform border border-border bg-background hover:bg-accent text-foreground cursor-pointer">
                   <Plus className="w-5 h-5" />
                 </Button>
               </div>
+            )}
 
-              {/* Goong map container */}
-              <div id="goong-map" className="w-full h-full bg-transparent" />
-            </div>
+            {/* Goong map container for home tab (demo) */}
+            {activeTab === "home" && (
+              <div className="w-full h-full bg-transparent">
+                <HomeDemoMap />
+              </div>
+            )}
 
+            {/* Goong map container for navigation tab (real) */}
+            <div 
+              id="goong-map-nav" 
+              className={cn("w-full h-full bg-transparent", activeTab === "navigation" ? "block" : "hidden")} 
+            />
           </div>
-        </section>
-      )}
+
+        </div>
+      </section>
 
       {/* Platform Features / Bento Grid Informational Section */}
       {activeTab === "home" && (
         <ModulesSection />
       )}
 
-      {/* Floating Report Hazard Dialog */}
+      {/* Floating Report Hazard Dialog - Minimal Typing Form */}
       {isReportOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-background border border-border shadow-2xl rounded-3xl w-full max-w-md p-6 flex flex-col gap-4 text-xs border-border/50">
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-sm flex items-center gap-1">
-                Report Road Hazard
+              <h3 className="font-bold text-sm flex items-center gap-1 font-Outfit">
+                Báo cáo Sự cố trên đường (+10 pts)
               </h3>
-              <Button variant="ghost" size="icon" onClick={() => setIsReportOpen(false)} className="h-8 w-8 rounded-full"><XCircle className="w-5 h-5" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => setIsReportOpen(false)} className="h-8 w-8 rounded-full cursor-pointer"><XCircle className="w-5 h-5" /></Button>
             </div>
 
             <form onSubmit={handleReportSubmit} className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
-                <span className="font-bold text-foreground">Incident Category</span>
-                <select value={reportCategory} onChange={(e) => setReportCategory(e.target.value)} className="p-3 border rounded-xl bg-background font-semibold border-border/50">
-                  <option value="FLOODING">🌊 Flooding &amp; Puddles</option>
-                  <option value="ACCIDENT">🚗 Traffic Accident</option>
-                  <option value="DEBRIS">🌲 Road Obstacles &amp; Debris</option>
-                  <option value="POTHOLES">🕳️ Potholes &amp; Damage</option>
+                <span className="font-bold text-foreground">Loại Sự cố</span>
+                <select value={reportCategory} onChange={(e) => setReportCategory(e.target.value)} className="p-3 border rounded-xl bg-background font-bold border-border/50 outline-none">
+                  <option value="FLOODING">🌊 Đường Ngập Nước</option>
+                  <option value="ACCIDENT">🚗 Tai nạn Giao thông</option>
+                  <option value="DEBRIS">🌲 Vật cản chắn đường</option>
+                  <option value="POTHOLES">🕳️ Hố sụt / Hỏng đường</option>
                 </select>
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="font-bold text-foreground">Hazard Coordinates (Selected via map click)</span>
+                <span className="font-bold text-foreground">Toạ độ Vị trí (Click chọn trên Bản đồ)</span>
                 <div className="p-3 border rounded-xl bg-muted/30 font-mono text-[9px] text-foreground font-bold border-border/50">
-                  Latitude: {reportLocation.lat.toFixed(6)}, Longitude: {reportLocation.lng.toFixed(6)}
+                  Lat: {reportLocation.lat.toFixed(6)}, Lng: {reportLocation.lng.toFixed(6)}
                 </div>
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="font-bold text-foreground">Attached Image (PII Automatically Scrubbed)</span>
+                <span className="font-bold text-foreground">Ảnh thực tế đính kèm (Scrubbed PII)</span>
                 <div className="flex items-center gap-2">
-                  <label className="flex-1 flex flex-col items-center justify-center p-2 border border-dashed rounded-xl cursor-pointer bg-muted/20 hover:bg-muted/30 border-border/50">
+                  <label className="flex-1 flex flex-col items-center justify-center p-2.5 border border-dashed rounded-xl cursor-pointer bg-muted/20 hover:bg-muted/30 border-border/50">
                     {uploading ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Upload className="w-4 h-4 text-foreground" />}
-                    <span className="text-[9px] text-foreground font-bold mt-1">Upload photo</span>
+                    <span className="text-[9px] text-foreground font-bold mt-1">Upload ảnh</span>
                     <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
                   </label>
                   {reportImage && (
@@ -1503,13 +1938,56 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1">
-                <span className="font-bold text-foreground">Description &amp; Details</span>
-                <textarea value={reportDesc} onChange={(e) => setReportDesc(e.target.value)} placeholder="Detail lane blockages, obstacle sizes, approximate depth..." className="p-3 border rounded-xl bg-background resize-none h-16 font-semibold border-border/50" />
+              <div className="flex flex-col gap-1.5">
+                <span className="font-bold text-foreground">Mô tả Nhanh (Click để chọn nhanh, không cần gõ)</span>
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {["Ngập nặng (>30cm)", "Ngập vừa (10-30cm)", "Cây đổ chắn đường", "Tai nạn xe máy", "Hố ga hư hỏng"].map(opt => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setReportDesc(opt)}
+                      className={cn(
+                        "px-2.5 py-1.5 rounded-xl border text-[10px] font-bold transition-all bg-transparent cursor-pointer",
+                        reportDesc === opt 
+                          ? "border-primary text-primary bg-primary/5" 
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <Button type="submit" className="w-full rounded-xl py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs mt-1 border-0">Submit Report</Button>
+              <Button type="submit" className="w-full rounded-xl py-6 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs mt-1.5 border-0 cursor-pointer">Gửi báo cáo</Button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Trip Completed Feedback Modal */}
+      {isFeedbackOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-background border border-border shadow-2xl rounded-3xl w-full max-w-sm p-6 flex flex-col gap-4 text-xs text-center">
+            <h3 className="font-bold text-sm font-Outfit flex items-center justify-center gap-1.5"><CheckCircle className="w-5 h-5 text-green-500 animate-bounce" /> Lộ trình Hoàn tất!</h3>
+            <p className="text-muted-foreground font-semibold leading-relaxed">Bạn đánh giá thế nào về lộ trình định tuyến tránh ngập của GoSafe vừa rồi?</p>
+            
+            <div className="flex justify-around gap-4 my-2">
+              <Button 
+                onClick={() => handleArriveDestination(5, "Lộ trình tránh ngập rất an toàn và tốt")} 
+                className="flex-1 h-12 rounded-xl bg-green-500 hover:bg-green-600 text-white font-bold border-0 flex flex-col items-center justify-center gap-1 cursor-pointer"
+              >
+                <ThumbsUp className="w-4.5 h-4.5" />
+                <span>Rất tốt</span>
+              </Button>
+              <Button 
+                onClick={() => handleArriveDestination(1, "Vẫn bị ngập / Lộ trình kém")} 
+                className="flex-1 h-12 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold border-0 flex flex-col items-center justify-center gap-1 cursor-pointer"
+              >
+                <ThumbsDown className="w-4.5 h-4.5" />
+                <span>Không tốt</span>
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -1556,13 +2034,13 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Redeem Vouchers Inline Tab Section */}
+      {/* Redeem Vouchers Section */}
       {activeTab === "redeem" && (
         <section className="container mx-auto px-6 py-24 flex flex-col gap-6 text-xs max-w-4xl min-h-[calc(100vh-8rem)]">
           <div className="flex items-center justify-between border-b pb-4 border-border/50">
             <div>
-              <h2 className="text-3xl font-bold text-foreground">Danh mục Đổi Voucher</h2>
-              <p className="text-xs text-muted-foreground mt-1">Sử dụng điểm thưởng GoSafe tích lũy được từ việc báo cáo sự cố để nhận quà.</p>
+              <h2 className="text-3xl font-bold text-foreground font-Outfit">Danh mục Đổi Voucher</h2>
+              <p className="text-xs text-muted-foreground mt-1 font-semibold">Sử dụng điểm thưởng GoSafe tích lũy được từ việc báo cáo sự cố để nhận quà.</p>
             </div>
             <Award className="w-10 h-10 text-primary animate-pulse" />
           </div>
@@ -1570,7 +2048,7 @@ export default function HomePage() {
           <div className="p-5 rounded-3xl bg-card border border-border/50 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
               <h4 className="text-sm font-bold text-foreground">Ví điểm thưởng GoSafe</h4>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5 font-semibold">
                 Bạn hiện đang sở hữu <strong className="text-primary text-sm font-bold">{points} điểm</strong>.
               </p>
             </div>
@@ -1589,7 +2067,7 @@ export default function HomePage() {
                       {voucher.pointsRequired} pts
                     </span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground leading-normal mt-1">{voucher.description}</p>
+                  <p className="text-[10px] text-muted-foreground leading-normal mt-1 font-semibold">{voucher.description}</p>
                 </div>
                 <div className="flex items-center justify-between text-[10px] font-semibold pt-2 border-t border-border/50">
                   <span>Kho hàng: <span className="text-primary font-bold">{voucher.quantity} chiếc</span></span>
@@ -1597,7 +2075,7 @@ export default function HomePage() {
                     size="sm"
                     disabled={points < voucher.pointsRequired || voucher.quantity <= 0}
                     onClick={() => handleVoucherExchange(voucher.id, voucher.pointsRequired)}
-                    className="h-7 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] font-bold border-0 px-3.5"
+                    className="h-7 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-[10px] font-bold border-0 px-3.5 cursor-pointer"
                   >
                     Đổi ngay
                   </Button>
@@ -1608,7 +2086,7 @@ export default function HomePage() {
 
           {/* Claimed History */}
           <div className="pt-6 border-t border-border/50 mt-4">
-            <h4 className="font-bold text-xs text-foreground uppercase mb-3">Lịch sử đổi Voucher của bạn</h4>
+            <h4 className="font-bold text-xs text-foreground uppercase mb-3 font-Outfit">Lịch sử đổi Voucher của bạn</h4>
             {claimedVouchers.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-[10px] border border-dashed rounded-2xl border-border/50 bg-slate-50/50">
                 Bạn chưa đổi bất kỳ voucher nào. Hãy tích cực báo cáo sự cố để kiếm điểm!
@@ -1635,11 +2113,11 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* User Profile Inline Tab Section */}
+      {/* User Profile Section */}
       {activeTab === "profile" && session && (
         <section className="container mx-auto px-6 py-24 flex flex-col gap-6 text-xs max-w-md min-h-[calc(100vh-8rem)]">
           <div className="flex items-center justify-between border-b pb-4 border-border/50">
-            <h2 className="text-2xl font-bold text-foreground">Hồ sơ &amp; Thiết lập</h2>
+            <h2 className="text-2xl font-bold text-foreground font-Outfit">Hồ sơ &amp; Thiết lập</h2>
           </div>
 
           <div className="flex items-center gap-4 p-4 border rounded-3xl border-border/50 bg-card">
@@ -1653,22 +2131,21 @@ export default function HomePage() {
             <div className="flex flex-col">
               <span className="text-base font-bold text-foreground">{session.user?.name}</span>
               <span className="text-[10px] text-muted-foreground">{session.user?.email}</span>
-              <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[8px] font-bold w-fit mt-1.5 uppercase">
+              <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[8px] font-bold w-fit mt-1.5 uppercase font-Outfit">
                 {session.user?.role || "MEMBER"}
               </span>
             </div>
           </div>
 
           {/* Credits Wallet */}
-          <div className="flex justify-between items-center bg-card p-4 rounded-3xl border border-border/50">
+          <div className="flex justify-between items-center bg-card p-4 rounded-3xl border border-border/50 font-bold">
             <div>
               <h4 className="font-bold text-xs text-foreground">Ví tích lũy điểm thưởng</h4>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Dùng để đổi quà tặng Voucher đối tác</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 font-semibold">Dùng để đổi quà tặng Voucher đối tác</p>
             </div>
             <span className="text-base font-bold text-primary">{points} pts</span>
           </div>
 
-          {/* Mobile App Settings Group */}
           <div className="flex flex-col border border-border/50 rounded-3xl bg-card overflow-hidden">
             <div className="p-4 border-b border-border/50 flex justify-between items-center hover:bg-slate-50/50 cursor-pointer">
               <div className="flex items-center gap-3 font-semibold text-foreground">
@@ -1692,7 +2169,6 @@ export default function HomePage() {
               <span className="text-slate-400 font-bold">&gt;</span>
             </div>
             
-            {/* Consent Toggle inside menu */}
             <div className="p-4 border-b border-border/50 flex items-center justify-between">
               <div className="flex items-center gap-3 font-semibold text-foreground">
                 <Shield className="w-4 h-4 text-slate-400" />
@@ -1716,33 +2192,33 @@ export default function HomePage() {
           <Button
             variant="outline"
             onClick={() => signOut()}
-            className="h-10 rounded-2xl mt-2 text-red-500 border-red-500/20 hover:bg-red-500/5 hover:text-red-500 font-bold text-xs"
+            className="h-10 rounded-2xl mt-2 text-red-500 border-red-500/20 hover:bg-red-500/5 hover:text-red-500 font-bold text-xs cursor-pointer"
           >
             Đăng xuất tài khoản
           </Button>
         </section>
       )}
 
-      {/* Bottom Center Floating Navigation Bar */}
+      {/* Bottom Center Fixed Navigation Bar - Responsive mobile docked / desktop floating pill */}
       {session && session.user && session.user.role !== "ADMIN" && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-background/80 backdrop-blur-md px-5 py-3 rounded-full border border-border shadow-lg flex items-center gap-4 w-fit select-none">
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/90 backdrop-blur-md px-6 py-2 pb-6 border-t border-border rounded-t-3xl shadow-lg flex items-center justify-around w-full select-none md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:w-fit md:rounded-full md:border md:pb-3 md:pt-3 md:px-5 md:justify-start md:gap-4">
           
           {/* Tab 1: Home Map */}
           <button
             onClick={() => setActiveTab("home")}
             className={cn(
-              "relative px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-colors border-0 bg-transparent cursor-pointer",
-              activeTab === "home" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              "relative px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-full text-[10px] md:text-xs font-bold flex flex-col md:flex-row items-center gap-1 md:gap-2 transition-colors border-0 bg-transparent cursor-pointer min-w-16 md:min-w-0",
+              activeTab === "home" ? "text-primary md:text-primary-foreground font-black" : "text-muted-foreground hover:text-foreground"
             )}
           >
             {activeTab === "home" && (
               <motion.div
                 layoutId="active-nav-pill"
-                className="absolute inset-0 bg-primary rounded-full z-[-1]"
+                className="absolute inset-0 bg-primary/10 md:bg-primary rounded-xl md:rounded-full z-[-1]"
                 transition={{ type: "spring", stiffness: 380, damping: 30 }}
               />
             )}
-            <Map className="w-4 h-4" />
+            <Map className="w-5.5 h-5.5 md:w-4 h-4" />
             <span>Home</span>
           </button>
 
@@ -1754,21 +2230,22 @@ export default function HomePage() {
                 return;
               }
               setActiveTab("navigation");
+              handleStartNavigation();
             }}
             className={cn(
-              "relative px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-colors border-0 bg-transparent cursor-pointer",
-              activeTab === "navigation" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              "relative px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-full text-[10px] md:text-xs font-bold flex flex-col md:flex-row items-center gap-1 md:gap-2 transition-colors border-0 bg-transparent cursor-pointer min-w-16 md:min-w-0",
+              activeTab === "navigation" ? "text-primary md:text-primary-foreground font-black" : "text-muted-foreground hover:text-foreground"
             )}
           >
             {activeTab === "navigation" && (
               <motion.div
                 layoutId="active-nav-pill"
-                className="absolute inset-0 bg-primary rounded-full z-[-1]"
+                className="absolute inset-0 bg-primary/10 md:bg-primary rounded-xl md:rounded-full z-[-1]"
                 transition={{ type: "spring", stiffness: 380, damping: 30 }}
               />
             )}
-            <Compass className="w-4 h-4" />
-            <span>Navigation</span>
+            <Compass className="w-5.5 h-5.5 md:w-4 h-4" />
+            <span>Map</span>
           </button>
 
           {/* Tab 3: Redeem */}
@@ -1781,19 +2258,19 @@ export default function HomePage() {
               setActiveTab("redeem");
             }}
             className={cn(
-              "relative px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-colors border-0 bg-transparent cursor-pointer",
-              activeTab === "redeem" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              "relative px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-full text-[10px] md:text-xs font-bold flex flex-col md:flex-row items-center gap-1 md:gap-2 transition-colors border-0 bg-transparent cursor-pointer min-w-16 md:min-w-0",
+              activeTab === "redeem" ? "text-primary md:text-primary-foreground font-black" : "text-muted-foreground hover:text-foreground"
             )}
           >
             {activeTab === "redeem" && (
               <motion.div
                 layoutId="active-nav-pill"
-                className="absolute inset-0 bg-primary rounded-full z-[-1]"
+                className="absolute inset-0 bg-primary/10 md:bg-primary rounded-xl md:rounded-full z-[-1]"
                 transition={{ type: "spring", stiffness: 380, damping: 30 }}
               />
             )}
-            <Award className="w-4 h-4" />
-            <span>Redemption</span>
+            <Award className="w-5.5 h-5.5 md:w-4 h-4" />
+            <span>Gifts</span>
           </button>
 
           {/* Tab 4: Profile */}
@@ -1806,25 +2283,25 @@ export default function HomePage() {
               setActiveTab("profile");
             }}
             className={cn(
-              "relative px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-colors border-0 bg-transparent cursor-pointer",
-              activeTab === "profile" ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              "relative px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-full text-[10px] md:text-xs font-bold flex flex-col md:flex-row items-center gap-1 md:gap-2 transition-colors border-0 bg-transparent cursor-pointer min-w-16 md:min-w-0",
+              activeTab === "profile" ? "text-primary md:text-primary-foreground font-black" : "text-muted-foreground hover:text-foreground"
             )}
           >
             {activeTab === "profile" && (
               <motion.div
                 layoutId="active-nav-pill"
-                className="absolute inset-0 bg-primary rounded-full z-[-1]"
+                className="absolute inset-0 bg-primary/10 md:bg-primary rounded-xl md:rounded-full z-[-1]"
                 transition={{ type: "spring", stiffness: 380, damping: 30 }}
               />
             )}
-            <User className="w-4 h-4" />
-            <span>My Profile</span>
+            <User className="w-5.5 h-5.5 md:w-4 h-4" />
+            <span>Profile</span>
           </button>
         </div>
       )}
 
       {/* Footer */}
-      <Footer />
+      {activeTab !== "navigation" && <Footer />}
     </div>
   );
 }
