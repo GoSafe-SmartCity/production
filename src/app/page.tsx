@@ -1156,12 +1156,18 @@ export default function HomePage() {
       }
 
       const checkPathBlocked = (pathPoints: [number, number][]) => {
+        // Only check the middle portion of the detour path to avoid false positives near start/end points
+        const startIdx = Math.floor(pathPoints.length * 0.12);
+        const endIdx = Math.floor(pathPoints.length * 0.85);
+        const checkPoints = pathPoints.slice(startIdx, endIdx);
+        const finalCheckPoints = checkPoints.length > 0 ? checkPoints : pathPoints;
+
         for (const incident of incidents) {
           if (incident.status === "ACTIVE" || incident.status === "APPROVED") {
             if (incident.streetCoords) {
               try {
                 const blockedCoords: [number, number][] = JSON.parse(incident.streetCoords);
-                for (const pt of pathPoints) {
+                for (const pt of finalCheckPoints) {
                   for (const bPt of blockedCoords) {
                     const dist = getDistance(pt[1], pt[0], bPt[1], bPt[0]);
                     if (dist < 0.08) return true; // 80 meters overlap threshold
