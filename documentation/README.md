@@ -103,7 +103,7 @@ yarn start
 
 ### Deployment
 
-**Live Link:** [Add your deployed URL here]
+**Live Link:** https://gosafe-smartcity.vercel.app/
 
 ### User Guide
 
