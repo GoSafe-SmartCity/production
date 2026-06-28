@@ -46,6 +46,13 @@ By analyzing this data, the system predicts high-risk flood zones and pushes rea
       <td><img src="https://img.shields.io/badge/Recharts-8884D8?style=for-the-badge&logo=recharts&logoColor=white" alt="Recharts" /></td>
    </tr>
    <tr>
+      <td><p>MagicUI & ReactBits</p></td>
+      <td><img src="https://img.shields.io/badge/MagicUI-111827?style=for-the-badge&logoColor=white" alt="MagicUI" /></td>
+      <td><img src="https://img.shields.io/badge/ReactBits-20232A?style=for-the-badge&logoColor=61DAFB" alt="ReactBits" /></td>
+      <td><img src="https://img.shields.io/badge/Template-0F172A?style=for-the-badge&logoColor=white" alt="Template" /></td>
+      <td><img src="https://img.shields.io/badge/UI_Foundation-334155?style=for-the-badge&logoColor=white" alt="UI Foundation" /></td>
+   </tr>
+   <tr>
       <td><p>Auth and Security</p></td>
       <td><img src="https://img.shields.io/badge/Framer_Motion-0055FF?style=for-the-badge&logo=framer&logoColor=white" alt="Framer Motion" /></td>
       <td><img src="https://img.shields.io/badge/NextAuth-000000?style=for-the-badge&logo=auth0&logoColor=white" alt="NextAuth" /></td>
@@ -55,29 +62,19 @@ By analyzing this data, the system predicts high-risk flood zones and pushes rea
    <tr>
       <td><p>Backend and API</p></td>
       <td><img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" /></td>
-      <td><img src="https://img.shields.io/badge/QRCode-000000?style=for-the-badge&logo=qrcode&logoColor=white" alt="QRCode" /></td>
       <td><img src="https://img.shields.io/badge/date--fns-3C3C3C?style=for-the-badge&logo=date-fns&logoColor=white" alt="date-fns" /></td>
       <td><img src="https://img.shields.io/badge/dotenv-ECD53F?style=for-the-badge&logo=dotenv&logoColor=000000" alt="dotenv" /></td>
+      <td><img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" /></td>
+      <td><img src="https://img.shields.io/badge/YOLO-111827?style=for-the-badge&logo=github&logoColor=white" alt="YOLO" /></td>
+      <td><img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" /></td>
    </tr>
 </table>
-
+<p align="center"><strong>MagicUI & ReactBits</strong> template used for the UI foundation.</p>
 <div align="center">
    <p>Additional Libraries and Tools</p>
    <img src="https://img.shields.io/badge/lodash.debounce-3492FF?style=for-the-badge&logo=lodash&logoColor=white" alt="lodash.debounce" />
    <img src="https://img.shields.io/badge/pg-336791?style=for-the-badge&logo=postgresql&logoColor=white" alt="pg" />
-   <img src="https://img.shields.io/badge/qrcode.react-2F80ED?style=for-the-badge&logo=react&logoColor=white" alt="qrcode.react" />
-   <img src="https://img.shields.io/badge/qr--code--styling-111827?style=for-the-badge&logo=qrcode&logoColor=white" alt="qr-code-styling" />
-   <img src="https://img.shields.io/badge/react--qrcode--logo-61DAFB?style=for-the-badge&logo=react&logoColor=000000" alt="react-qrcode-logo" />
 </div>
-
-### Feature Footprint
-
-- `app/`: App Router pages, layouts, and server routes
-- `components/`: Reusable UI and dashboard components
-- `hooks/`: Client-side hooks for storage, rate limiting, and UX behavior
-- `lib/`: Auth, Prisma, utilities, and service logic
-- `prisma/`: Schema, migrations, and seed data
-- `public/`: Brand assets, map visuals, and platform icons
 
 ## IV. Architecture
 
@@ -207,8 +204,7 @@ yarn start
 
 5. **Redeem Points**
    - Exchange accumulated reward points for vouchers in the rewards section
-## VII. System Architecture
-<img width="886" height="881" alt="image" src="https://github.com/user-attachments/assets/c0701820-25a4-44fe-b3c6-de413ebf7f67" />
-## VIII. AI - assisted development 
-Gemini, AI Agent integrated in AntiGravity
 
+## VII. System Architecture
+
+<img width="886" height="881" alt="image" src="https://github.com/user-attachments/assets/c0701820-25a4-44fe-b3c6-de413ebf7f67" />
