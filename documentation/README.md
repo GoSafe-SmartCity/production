@@ -123,3 +123,6 @@ yarn start
 
 5. **Redeem Points**
    - Exchange accumulated reward points for vouchers in the rewards section
+## VII. System Architecture
+<img width="886" height="881" alt="image" src="https://github.com/user-attachments/assets/c0701820-25a4-44fe-b3c6-de413ebf7f67" />
+
