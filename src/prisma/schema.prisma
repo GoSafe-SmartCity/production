@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          Role      @default(USER)
+  points        Int       @default(0)
+  consent       Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  reports       IncidentReport[]
+  feedbacks     IncidentFeedback[]
+  exchanges     VoucherExchange[]
+  navigations   NavigationSession[]
+  apiKeys       ApiKey[]
+  subscriptions NotificationSubscription[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  id         String   @id @default(cuid())
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model IncidentReport {
+  id          String   @id @default(cuid())
+  reporterId  String?
+  reporter    User?    @relation(fields: [reporterId], references: [id], onDelete: SetNull)
+  type        String   @default("CITIZEN") // "CITIZEN" | "CV_CAMERA"
+  category    String   // "FLOODING" | "DEBRIS" | "POTHOLES" | "ACCIDENT"
+  imageUrl    String?
+  latitude    Float
+  longitude   Float
+  description String   @db.Text
+  confidence  Float    @default(1.0)
+  status      String   @default("PENDING") // "PENDING" | "APPROVED" | "REJECTED"
+  createdAt   DateTime @default(now())
+
+  incidentId  String?
+  incident    RoadIncident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+}
+
+model RoadIncident {
+  id             String   @id @default(cuid())
+  category       String   // "FLOODING" | "DEBRIS" | "POTHOLES" | "ACCIDENT"
+  riskScore      Int      @default(0) // 0 to 100
+  riskLevel      String   @default("LOW") // "LOW" | "MEDIUM" | "HIGH"
+  latitude       Float
+  longitude      Float
+  locationName   String
+  description    String   @db.Text
+  recommendation String   @db.Text
+  status         String   @default("ACTIVE") // "ACTIVE" | "CLEARED"
+  startedAt      DateTime @default(now())
+  endsAt         DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  geom           String?  @db.Text
+  streetCoords   String?  @db.Text
+
+  reports        IncidentReport[]
+  feedbacks      IncidentFeedback[]
+}
+
+model IncidentFeedback {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incidentId   String?
+  incident     RoadIncident? @relation(fields: [incidentId], references: [id], onDelete: SetNull)
+  type         String        @default("STATUS_VOTE") // "STATUS_VOTE" | "POST_NAVIGATION"
+  statusVote   String?       // "STILL_ACTIVE" | "PARTIALLY_CLEARED" | "CLEARED"
+  rating       Int?          // Safety rating 1-5
+  comment      String?       @db.Text
+  createdAt    DateTime      @default(now())
+}
+
+model WeatherTelemetry {
+  id          String   @id @default(cuid())
+  latitude    Float
+  longitude   Float
+  rainfall    Float    // mm
+  windSpeed   Float    // m/s
+  temperature Float    // °C
+  pressure    Float    // hPa
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model Voucher {
+  id             String            @id @default(cuid())
+  code           String            @unique
+  title          String
+  description    String            @db.Text
+  pointsRequired Int
+  quantity       Int
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  exchanges      VoucherExchange[]
+}
+
+model VoucherExchange {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voucherId   String
+  voucher     Voucher  @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  exchangedAt DateTime @default(now())
+  status      String   @default("ACTIVE") // "ACTIVE" | "USED"
+}
+
+model NavigationSession {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startLat  Float
+  startLng  Float
+  endLat    Float
+  endLng    Float
+  status    String    @default("IN_PROGRESS") // "IN_PROGRESS" | "ARRIVED" | "CANCELLED"
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+}
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  key        String    @unique
+  name       String
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+}
+
+model NotificationSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @db.Text
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+}
+
+model CameraStation {
+  id        String   @id
+  name      String
+  latitude  Float
+  longitude Float
+  status    String   @default("ONLINE") // "ONLINE" | "OFFLINE"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  detections CameraDetection[]
+}
+
+model CameraDetection {
+  id             String        @id @default(cuid())
+  stationId      String
+  station        CameraStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  timestamp      DateTime      @default(now())
+  waterDepthCm   Float
+  vehiclesCount  Int
+  severity       String        // "LOW" | "MEDIUM" | "HIGH"
+  rawFramePath   String        // e.g. "/detections/raw_day_X.jpg"
+  segmentPath    String        // e.g. "/detections/segment_day_X.jpg"
+  floodedAreaPct Float
+  createdAt      DateTime      @default(now())
+}
