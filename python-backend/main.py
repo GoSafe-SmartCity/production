@@ -1,4 +1,4 @@
-import base64
+    import base64
 from io import BytesIO
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware

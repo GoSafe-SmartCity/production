@@ -122,27 +122,30 @@ export function UserPage() {
     ];
 
     return (
-        <div className="flex flex-col gap-6 px-8 py-8 w-full">
-            <div>
-                <h1 className="text-3xl font-black text-slate-900">Privacy Consents &amp; Wallet balances</h1>
+        <div className="flex flex-col w-full">
+            {/* Header */}
+            <div className="px-8 pt-8 pb-4">
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight">Privacy Consents &amp; Wallet balances</h1>
                 <p className="text-sm text-slate-500 mt-1">Audit active GPS telemetry authorizations and safety wallet balances.</p>
             </div>
 
             <div className="w-full h-px bg-slate-200" />
 
-            {isLoading && adminUsers.length === 0 ? (
-                <div className="text-center py-20 text-xs font-semibold text-slate-500 flex items-center justify-center gap-2">
-                    <RefreshCw className="w-4 h-4 animate-spin text-primary" /> Loading privacy logs...
-                </div>
-            ) : (
-                <DataTable
-                    columns={columns}
-                    data={adminUsers}
-                    searchColumnId="email"
-                    searchPlaceholder="Search email..."
-                    pageSize={10}
-                />
-            )}
+            <div className="px-8 py-6">
+                {isLoading && adminUsers.length === 0 ? (
+                    <div className="text-center py-20 text-xs font-semibold text-slate-500 flex items-center justify-center gap-2">
+                        <RefreshCw className="w-4 h-4 animate-spin text-primary" /> Loading privacy logs...
+                    </div>
+                ) : (
+                    <DataTable
+                        columns={columns}
+                        data={adminUsers}
+                        searchColumnId="email"
+                        searchPlaceholder="Search email..."
+                        pageSize={10}
+                    />
+                )}
+            </div>
         </div>
     );
 }

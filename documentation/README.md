@@ -21,7 +21,91 @@ Our platform anticipates and reports flooding by synthesizing data from three pr
 
 By analyzing this data, the system predicts high-risk flood zones and pushes real-time alerts to the user interface, instantly recalculating safe routes.
 
-## III. Core Features
+## III. Tech Stack
+
+<table>
+   <tr>
+      <td><p>Frontend</p></td>
+      <td><img src="https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js" /></td>
+      <td><img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" /></td>
+      <td><img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" /></td>
+      <td><img src="https://img.shields.io/badge/App%20Router-111827?style=for-the-badge&logo=vercel&logoColor=white" alt="App Router" /></td>
+   </tr>
+   <tr>
+      <td><p>Styling</p></td>
+      <td><img src="https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS" /></td>
+      <td><img src="https://img.shields.io/badge/tailwind--merge-0F172A?style=for-the-badge&logo=tailwindcss&logoColor=38B2AC" alt="tailwind-merge" /></td>
+      <td><img src="https://img.shields.io/badge/class--variance--authority-111827?style=for-the-badge&logo=css3&logoColor=white" alt="class-variance-authority" /></td>
+      <td><img src="https://img.shields.io/badge/clsx-1E293B?style=for-the-badge&logo=javascript&logoColor=F7DF1E" alt="clsx" /></td>
+   </tr>
+   <tr>
+      <td><p>UI Primitives</p></td>
+      <td><img src="https://img.shields.io/badge/Radix_UI-000000?style=for-the-badge&logo=radixui&logoColor=white" alt="Radix UI" /></td>
+      <td><img src="https://img.shields.io/badge/Lucide_React-111827?style=for-the-badge&logo=lucide&logoColor=white" alt="Lucide React" /></td>
+      <td><img src="https://img.shields.io/badge/Sonner-111827?style=for-the-badge&logoColor=white" alt="Sonner" /></td>
+      <td><img src="https://img.shields.io/badge/Recharts-8884D8?style=for-the-badge&logo=recharts&logoColor=white" alt="Recharts" /></td>
+   </tr>
+   <tr>
+      <td><p>Auth and Security</p></td>
+      <td><img src="https://img.shields.io/badge/Framer_Motion-0055FF?style=for-the-badge&logo=framer&logoColor=white" alt="Framer Motion" /></td>
+      <td><img src="https://img.shields.io/badge/NextAuth-000000?style=for-the-badge&logo=auth0&logoColor=white" alt="NextAuth" /></td>
+      <td><img src="https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white" alt="Prisma" /></td>
+      <td><img src="https://img.shields.io/badge/PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" /></td>
+   </tr>
+   <tr>
+      <td><p>Backend and API</p></td>
+      <td><img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white" alt="Node.js" /></td>
+      <td><img src="https://img.shields.io/badge/QRCode-000000?style=for-the-badge&logo=qrcode&logoColor=white" alt="QRCode" /></td>
+      <td><img src="https://img.shields.io/badge/date--fns-3C3C3C?style=for-the-badge&logo=date-fns&logoColor=white" alt="date-fns" /></td>
+      <td><img src="https://img.shields.io/badge/dotenv-ECD53F?style=for-the-badge&logo=dotenv&logoColor=000000" alt="dotenv" /></td>
+   </tr>
+</table>
+
+<div align="center">
+   <p>Additional Libraries and Tools</p>
+   <img src="https://img.shields.io/badge/lodash.debounce-3492FF?style=for-the-badge&logo=lodash&logoColor=white" alt="lodash.debounce" />
+   <img src="https://img.shields.io/badge/pg-336791?style=for-the-badge&logo=postgresql&logoColor=white" alt="pg" />
+   <img src="https://img.shields.io/badge/qrcode.react-2F80ED?style=for-the-badge&logo=react&logoColor=white" alt="qrcode.react" />
+   <img src="https://img.shields.io/badge/qr--code--styling-111827?style=for-the-badge&logo=qrcode&logoColor=white" alt="qr-code-styling" />
+   <img src="https://img.shields.io/badge/react--qrcode--logo-61DAFB?style=for-the-badge&logo=react&logoColor=000000" alt="react-qrcode-logo" />
+</div>
+
+### Feature Footprint
+
+- `app/`: App Router pages, layouts, and server routes
+- `components/`: Reusable UI and dashboard components
+- `hooks/`: Client-side hooks for storage, rate limiting, and UX behavior
+- `lib/`: Auth, Prisma, utilities, and service logic
+- `prisma/`: Schema, migrations, and seed data
+- `public/`: Brand assets, map visuals, and platform icons
+
+## IV. Architecture
+
+### Frontend Structure
+
+- `app/`: Main frontend shell built with Next.js App Router, including the landing page, global layout, metadata assets, and client providers
+- `components/`: Shared UI building blocks and dashboard sections such as navigation, tables, dialogs, loading states, and reusable form controls
+- `components/ui/`: Base design-system primitives used across the interface for consistent inputs, dialogs, tabs, tooltips, and other controls
+- `hooks/`: Client-side behavior for storage migration and rate-limit handling
+- `public/`: Static assets such as the logo, QR assets, manifest files, and platform icons
+- `app/globals.css`: Global styling entry point for the application-wide visual system
+
+### Backend Structure
+
+- `app/api/`: Server route handlers that expose the application API surface
+- `app/api/auth/`: Authentication flow and NextAuth integration
+- `app/api/incidents/`: Incident intake, approval, clearing, upload, and AI evaluation workflows
+- `app/api/navigation/`: Route logic for navigation and rerouting behavior
+- `app/api/notifications/`: Notification delivery and subscription handling
+- `app/api/rate-limit/`: Rate-limiting endpoints and checks
+- `app/api/users/`: User management and consent endpoints
+- `app/api/vouchers/`: Voucher listing and exchange logic
+- `app/api/weather/`: Weather data ingestion and risk-related endpoints
+- `lib/`: Server-side auth, Prisma client setup, shared utilities, and service logic
+- `prisma/`: Database schema, migrations, and seed data for PostgreSQL-backed persistence
+- `app/generated/prisma/`: Generated Prisma client and model typings used by the backend
+
+## V. Core Features
 
 ### 1. User
 
@@ -43,14 +127,14 @@ By analyzing this data, the system predicts high-risk flood zones and pushes rea
 
 - Use our API to develop their own applications
 
-## IV. Prerequisites
+## VI. Prerequisites
 
 - Node.js (v18.0.0 or higher)
 - npm or yarn package manager
 - Git
 - A code editor (VS Code recommended)
 
-## V. Run Instructions
+## VII. Run Instructions
 
 ### Local Development
 
@@ -99,11 +183,11 @@ yarn build
 yarn start
 ```
 
-## VI. How To Use
+## VIII. How To Use
 
 ### Deployment
 
-**Live Link:** [Add your deployed URL here]
+**Live Link:** https://gosafe-smartcity.vercel.app/
 
 ### User Guide
 
@@ -123,3 +207,6 @@ yarn start
 
 5. **Redeem Points**
    - Exchange accumulated reward points for vouchers in the rewards section
+## VII. System Architecture
+<img width="886" height="881" alt="image" src="https://github.com/user-attachments/assets/c0701820-25a4-44fe-b3c6-de413ebf7f67" />
+

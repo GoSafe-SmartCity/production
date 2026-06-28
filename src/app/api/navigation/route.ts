@@ -37,14 +37,21 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Missing sessionId" }, { status: 400 });
       }
 
-      // Close the navigation session
-      const navSession = await prisma.navigationSession.update({
-        where: { id: sessionId },
-        data: {
-          status: "ARRIVED",
-          endedAt: new Date(),
-        },
-      });
+      // Close the navigation session if it exists and is not feedback
+      let navSession = null;
+      if (sessionId !== "feedback") {
+        try {
+          navSession = await prisma.navigationSession.update({
+            where: { id: sessionId },
+            data: {
+              status: "ARRIVED",
+              endedAt: new Date(),
+            },
+          });
+        } catch (e) {
+          console.warn("Could not find navigation session to update: ", e);
+        }
+      }
 
       // Award commuter points for completing navigation & safety checks (+5 points)
       await prisma.user.update({

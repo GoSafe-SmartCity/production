@@ -16,7 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ShieldCheck, BookOpen, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 
-const TERMS_ACCEPTED_KEY = "hcmute-slink-terms-accepted";
+const TERMS_ACCEPTED_KEY = "gosafe-terms-accepted";
 
 export function TermsModal() {
   const { data: session } = useSession();
@@ -37,9 +37,6 @@ export function TermsModal() {
         return () => clearTimeout(timer);
       }
     } catch {
-      // If localStorage fails (e.g. private mode), default to showing terms
-      // or optionally swallow error if we don't want to show
-      // But showing is safer for compliance
       const timer = setTimeout(() => setOpen(true), 500);
       return () => clearTimeout(timer);
     }
@@ -74,11 +71,11 @@ export function TermsModal() {
                 <ShieldCheck className="w-6 h-6 text-primary" />
               </div>
               <DialogTitle className="text-xl font-semibold">
-                Điều khoản sử dụng
+                Điều khoản sử dụng GoSafe
               </DialogTitle>
             </div>
             <DialogDescription className="text-muted-foreground">
-              Vui lòng đọc và đồng ý với các điều khoản trước khi sử dụng
+              Vui lòng đọc và đồng ý với các điều khoản trước khi sử dụng hệ thống
             </DialogDescription>
           </DialogHeader>
         </div>
@@ -97,9 +94,9 @@ export function TermsModal() {
                 <ShieldCheck className="w-5 h-5 text-green-600" />
               </div>
               <div className="flex-1">
-                <h4 className="font-medium text-green-700 dark:text-green-400">Tuân thủ quy tắc</h4>
+                <h4 className="font-medium text-green-700 dark:text-green-400">Tuân thủ an toàn</h4>
                 <p className="text-sm text-muted-foreground">
-                  Tuân thủ quy định của HCMUTE và pháp luật Việt Nam.
+                  Tuân thủ luật lệ an toàn giao thông đường bộ và các chỉ dẫn từ chính quyền địa phương.
                 </p>
               </div>
             </motion.div>
@@ -115,14 +112,14 @@ export function TermsModal() {
                 <AlertTriangle className="w-5 h-5 text-green-600" />
               </div>
               <div className="flex-1">
-                <h4 className="font-medium text-green-700 dark:text-green-400">Không dùng liên kết có hại</h4>
+                <h4 className="font-medium text-green-700 dark:text-green-400">Báo cáo trung thực</h4>
                 <p className="text-sm text-muted-foreground">
-                  Không tạo liên kết dẫn đến nội dung độc hại, lừa đảo.
+                  Chỉ báo cáo các điểm ngập nước, tai nạn hoặc sự cố giao thông thực tế. Không đưa tin giả.
                 </p>
               </div>
             </motion.div>
 
-            {/* Rule 3 - Encouragement */}
+            {/* Rule 3 */}
             <motion.div
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
@@ -133,9 +130,9 @@ export function TermsModal() {
                 <BookOpen className="w-5 h-5 text-green-600" />
               </div>
               <div className="flex-1">
-                <h4 className="font-medium text-green-700 dark:text-green-400">Sử dụng cho học tập</h4>
+                <h4 className="font-medium text-green-700 dark:text-green-400">Quyền riêng tư vị trí</h4>
                 <p className="text-sm text-muted-foreground">
-                  Khuyến khích dùng cho mục đích học tập và nghiên cứu.
+                  Đồng ý chia sẻ dữ liệu vị trí ẩn danh nhằm tối ưu hóa tính toán lộ trình di chuyển tránh ngập.
                 </p>
               </div>
             </motion.div>

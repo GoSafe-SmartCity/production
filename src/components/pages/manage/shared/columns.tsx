@@ -55,6 +55,7 @@ export const reportColumns = [
         header: () => <span className="text-center block w-full">Actions</span>,
         cell: ({ row, table }) => (
             <div className="flex items-center justify-center gap-1.5 w-full">
+                <Button variant="outline" size="sm" onClick={() => table.options.meta?.onViewDetail?.(row.original)} className="h-7 rounded-lg text-[9px] font-bold text-slate-755 border-slate-200 hover:bg-slate-50 bg-white">View</Button>
                 {row.original.status === "PENDING" && (
                     <>
                         <Button variant="outline" size="sm" onClick={() => table.options.meta?.onReject?.(row.original.id)} className="h-7 rounded-lg text-[9px] font-bold text-red-650 border-red-250 hover:bg-red-50 bg-white">Reject</Button>
@@ -188,3 +189,85 @@ export const voucherColumns = [
         )
     })
 ];
+// Columns definition for Claimed Vouchers (VoucherExchange)
+const claimedVoucherHelper = createColumnHelper<any>();
+export const claimedVoucherColumns = [
+    claimedVoucherHelper.accessor('id', {
+        header: 'Unique Voucher Hash',
+        cell: info => {
+            const id = info.getValue();
+            return <span className="font-mono text-primary text-xs font-bold uppercase">{`GS-EX-${id.slice(-6).toUpperCase()}`}</span>;
+        }
+    }),
+    claimedVoucherHelper.accessor('voucher.title', {
+        header: 'Voucher Option',
+        cell: info => <span className="font-bold text-slate-800">{info.getValue() || "Voucher"}</span>
+    }),
+    claimedVoucherHelper.accessor('user.name', {
+        header: 'Claimed By',
+        cell: ({ row }) => (
+            <div>
+                <p className="font-bold text-slate-900">{row.original.user?.name || "Anonymous"}</p>
+                <p className="text-[9px] text-slate-400 font-semibold mt-0.5 leading-none">{row.original.user?.email || ""}</p>
+            </div>
+        )
+    }),
+    claimedVoucherHelper.accessor('exchangedAt', {
+        header: 'Exchange Timestamp',
+        cell: info => <span className="text-slate-550">{new Date(info.getValue()).toLocaleString('vi-VN')}</span>
+    }),
+    claimedVoucherHelper.accessor('status', {
+        header: 'Status',
+        cell: info => {
+            const val = info.getValue();
+            return (
+                <span className={cn(
+                    "px-2 py-0.5 rounded text-[8px] font-bold uppercase",
+                    val === "ACTIVE" ? "bg-green-50 text-green-700 border border-green-200" : "bg-slate-100 text-slate-650 border border-slate-200"
+                )}>
+                    {val}
+                </span>
+            );
+        }
+    }),
+    claimedVoucherHelper.display({
+        id: 'timeLeft',
+        header: 'Validity / Used Time Left',
+        cell: ({ row }) => {
+            const exchangedAt = row.original.exchangedAt;
+            const status = row.original.status;
+            if (status === "USED") {
+                return <span className="text-slate-400 font-semibold">Used</span>;
+            }
+            const expiry = new Date(exchangedAt).getTime() + 30 * 24 * 60 * 60 * 1000;
+            const diff = expiry - Date.now();
+            if (diff <= 0) {
+                return <span className="text-red-500 font-bold">Expired</span>;
+            }
+            const daysLeft = Math.floor(diff / (24 * 60 * 60 * 1000));
+            const hoursLeft = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+            return (
+                <span className="text-slate-650 font-semibold">
+                    {daysLeft > 0 ? `${daysLeft}d ${hoursLeft}h left` : `${hoursLeft}h left`}
+                </span>
+            );
+        }
+    }),
+    claimedVoucherHelper.display({
+        id: 'actions',
+        header: () => <span className="text-center block w-full">Actions</span>,
+        cell: ({ row, table }) => (
+            <div className="flex justify-center w-full">
+                {row.original.status === "ACTIVE" && (
+                    <Button 
+                        size="sm" 
+                        onClick={() => table.options.meta?.onMarkAsUsed?.(row.original.id)} 
+                        className="h-7 rounded-lg text-[9px] font-bold bg-slate-900 text-white hover:bg-slate-800 border-0 cursor-pointer"
+                    >
+                        Mark as Used
+                    </Button>
+                )}
+            </div>
+        )
+    })
+];;

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
+import { crawlGoogleImage } from "@/lib/image-crawler";
+
 
 // GET: Query incidents with advanced filters
 export async function GET(req: NextRequest) {
@@ -66,7 +68,7 @@ export async function POST(req: NextRequest) {
 
     // Check if admin is creating incident directly
     if (session?.user?.role === "ADMIN" && body.directCreate) {
-      const { category, riskLevel, riskScore, locationName, description, recommendation, latitude, longitude } = body;
+      const { category, riskLevel, riskScore, locationName, description, recommendation, latitude, longitude, streetCoords, geom } = body;
       if (!category || !locationName || !description || latitude === undefined || longitude === undefined) {
         return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
       }
@@ -82,6 +84,8 @@ export async function POST(req: NextRequest) {
           longitude: parseFloat(longitude),
           status: "ACTIVE",
           startedAt: new Date(),
+          streetCoords: streetCoords || null,
+          geom: geom || null,
         }
       });
       return NextResponse.json({ success: true, incident });
@@ -106,12 +110,21 @@ export async function POST(req: NextRequest) {
     // Standard PII privacy scrubbing simulation
     const finalDescription = `${description} [Privacy-checked: camera blurred metadata]`;
 
+    let finalImageUrl = imageUrl || null;
+    if (!finalImageUrl) {
+      try {
+        finalImageUrl = await crawlGoogleImage(category);
+      } catch (err) {
+        console.warn("Failed to crawl Google image for incident API:", err);
+      }
+    }
+
     const report = await prisma.incidentReport.create({
       data: {
         reporterId: session?.user?.id || null,
         type: reportType,
         category,
-        imageUrl: imageUrl || null,
+        imageUrl: finalImageUrl,
         latitude: lat,
         longitude: lng,
         description: finalDescription,
@@ -134,7 +147,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const { id, category, riskScore, riskLevel, latitude, longitude, locationName, description, recommendation, status } = await req.json();
+    const { id, category, riskScore, riskLevel, latitude, longitude, locationName, description, recommendation, status, streetCoords, geom } = await req.json();
 
     if (!id || !category || !locationName || !description) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -152,6 +165,8 @@ export async function PUT(req: NextRequest) {
         description,
         recommendation: recommendation || "",
         status: status || "ACTIVE",
+        streetCoords: streetCoords || null,
+        geom: geom || null,
       },
     });
 
